@@ -30,8 +30,16 @@ Done:
 - `JournalService` — signals CRUD, calls `recordActivityToday()` on save
 - App shell (`layout/shell`, `layout/nav`) — desktop sidebar / mobile bottom
   nav, six lazy routes wired in `app.routes.ts`
-- Placeholder components for Home, Puzzle, Learn, Journal, Progress (just a
+- Placeholder components for Puzzle, Learn, Journal, Progress (just a
   heading + "Phase N builds this here" — not real implementations yet)
+- **Phase 2: Home Dashboard** — `features/home/home.component.ts`. Greeting
+  (time-of-day, hardcoded child name `Neo`), streak/longest-streak/days-learned
+  read straight from `ProgressService`, two quick-action cards linking to
+  `/puzzle` and `/learn` (static copy — no real puzzle/lesson content to
+  preview yet since those JSON files don't exist), and a journal preview
+  pulling the latest entry from `JournalService` (with an empty-state CTA to
+  `/journal`). Verified in a real browser at desktop and mobile widths, both
+  with seeded activity data and with a fresh empty state.
 - **Blog module (built out of phase order, per explicit request):**
   `BlogService` (`core/services/blog.service.ts`) — full status workflow
   (`create`/`update`/`submitForReview`/`backToDraft`/`publish`/`archive`/
@@ -49,12 +57,9 @@ Done:
   → publish → public listing → detail page, plus cover image upload and
   localStorage persistence across reload.
 
-Not started yet — **Phase 2: Home Dashboard**
-(`features/home/home.component.ts`: greeting, streak badge, today's
-puzzle/lesson quick-action cards, journal preview), then Phases 3–5 (Puzzle,
-Learn, Journal), then Progress, per the module descriptions below.
-`assets/data/puzzles.json` and `assets/data/lessons.json` have not been
-created/seeded yet.
+Not started yet — Phases 3–5 (Puzzle, Learn, Journal), then Progress, per
+the module descriptions below. `assets/data/puzzles.json` and
+`assets/data/lessons.json` have not been created/seeded yet.
 
 Per the original brief: confirm with the user before starting each new phase
 rather than running straight through all of them.
