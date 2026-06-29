@@ -62,3 +62,15 @@ body {
   padding: 1em;
   overflow-x: auto;
 }
+
+.ProseMirror {
+  outline: none;
+}
+
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: 'Start writing...';
+  color: #78716C;
+  float: left;
+  height: 0;
+  pointer-events: none;
+}

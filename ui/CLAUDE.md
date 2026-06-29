@@ -42,12 +42,27 @@ Done:
   via `marked` into `[innerHTML]` — Angular's default sanitizer handles the
   XSS concern), `blog-manage.component.ts` (`/blog/manage`, every post +
   status-appropriate action buttons), `blog-editor.component.ts`
-  (`/blog/manage/new` and `/blog/manage/:id/edit`, textarea + Preview
-  toggle, no rich-text toolbar). Markdown content styling lives in a
+  (`/blog/manage/new` and `/blog/manage/:id/edit`, **Confluence-style WYSIWYG
+  editor via TipTap** — see below). Markdown content styling lives in a
   `.markdown-content` class in `styles.css` (no `@tailwindcss/typography`
   dependency added). Verified end-to-end in a real browser: create → submit
   → publish → public listing → detail page, plus cover image upload and
   localStorage persistence across reload.
+- **Blog WYSIWYG editor (explicit user request, overrides the "no rich-text
+  toolbar" rule below for this one screen):** `blog-editor.component.ts` now
+  mounts a TipTap (`@tiptap/core`, `@tiptap/starter-kit`, `@tiptap/markdown`,
+  `@tiptap/extension-placeholder`) editor directly on a template ref div in
+  `ngAfterViewInit`, destroyed in `ngOnDestroy`. The official `Markdown`
+  extension reads/writes markdown directly (`contentType: 'markdown'` on
+  load, `editor.getMarkdown()` on save) so `BlogPost.contentMarkdown` stays
+  the storage format with no HTML conversion layer — `BlogService` and the
+  public `/blog/:id` `marked`-based rendering are unchanged. A plain
+  text-label toolbar (B / I / S / H2 / H3 / bullet+numbered list / Quote /
+  Code / Link) drives `editor.chain().focus().toggleX().run()` commands;
+  active-state styling is tracked via a signal synced on TipTap's
+  `onUpdate`/`onSelectionUpdate`. The Link button uses `window.prompt()`
+  (same native-dialog precedent as the delete `confirm()` in
+  `blog-manage.component.ts`) rather than a custom modal.
 
 Not started yet — **Phase 2: Home Dashboard**
 (`features/home/home.component.ts`: greeting, streak badge, today's
@@ -139,10 +154,12 @@ White background, `border border-cloud`, no shadow, no border-radius.
   only for the first submission, to keep friction low.
 - `/blog` — published posts only, styled like a real blog homepage.
 - `/blog/manage` — every post regardless of status, with status badge + actions.
-- `/blog/manage/new`, `/blog/manage/:id/edit` — plain markdown textarea + a
-  "Preview" toggle button (same pattern as Puzzle's "Show Hint"). No rich-text
-  toolbar. Render markdown with `marked`, and sanitize the rendered HTML before
-  binding with `[innerHTML]`.
+- `/blog/manage/new`, `/blog/manage/:id/edit` — a TipTap-based WYSIWYG editor
+  (the one documented exception to "no rich-text toolbar"/"no rich text
+  editor" below). Storage format is still plain markdown — see the Done
+  notes above for how the round-trip works. The public `/blog/:id` page
+  still renders that markdown with `marked`, sanitizing the rendered HTML
+  before binding with `[innerHTML]`.
 - Cover image: optional, stored as a compressed base64 data URI on the post
   (resize client-side to ~1000px wide, JPEG ~70% quality before storing). This is
   a known V1 constraint — localStorage is capped around 5–10MB per origin — not a bug.
@@ -152,7 +169,9 @@ White background, `border border-cloud`, no shadow, no border-radius.
 - No notifications or reminders.
 - No social features, no real auth, no multi-user support.
 - No AI chat.
-- No loading spinners, no rich text editor, no infinite scroll.
+- No loading spinners, no infinite scroll. No rich text editor — **except**
+  the Blog create/edit page, which is a documented, explicit exception (see
+  Blog module specifics above).
 
 ## V1 → V2 migration note
 `StorageService` is the only intended swap point. In V2 it would call a FastAPI
