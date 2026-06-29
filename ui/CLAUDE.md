@@ -63,6 +63,14 @@ Done:
   `onUpdate`/`onSelectionUpdate`. The Link button uses `window.prompt()`
   (same native-dialog precedent as the delete `confirm()` in
   `blog-manage.component.ts`) rather than a custom modal.
+- **"Warm & rounded" visual refresh (explicit user request):** re-skinned
+  Shell/Nav, the full Blog module, and all 5 placeholder pages from the old
+  flat/left-border-accent look to rounded corners + soft shadows (see Design
+  rules above). Added `shared/components/icon/icon.component.ts`, a dumb
+  `app-icon` component with one inline SVG per nav item, used in both the
+  sidebar/mobile nav and on each placeholder page's "coming soon" card. No
+  `tailwind.config.js` changes were needed — the refresh uses Tailwind's
+  existing stock radius/shadow scale.
 
 Not started yet — **Phase 2: Home Dashboard**
 (`features/home/home.component.ts`: greeting, streak badge, today's
@@ -116,22 +124,43 @@ the new interface.
    moss-dark #2E5238, amber #D97706, muted #78716C.
 2. Fonts: Fraunces (display/headings), DM Sans (body/labels/buttons),
    DM Mono (numbers — puzzle grids, stats, dates).
-3. No shadows. No rounded card corners (buttons max 2px radius). No modals.
-   No loading spinners (data is local — if something needs a spinner, reconsider
-   the architecture). No looping/bouncing animations. No emojis in UI chrome.
-4. Buttons use a left border accent (`border-l-4 border-moss-dark` etc.), not
-   rounded pills — see button variants below.
+3. "Warm & rounded" look: soft shadows (`shadow-sm`/`shadow-md`, Tailwind's
+   stock scale) and rounded corners (`rounded-lg`/`rounded-xl`/`rounded-2xl`,
+   also Tailwind stock — `tailwind.config.js` is untouched) everywhere.
+   Still no modals, no loading spinners (data is local — if something needs
+   a spinner, reconsider the architecture), no looping/bouncing animations,
+   no emojis in UI chrome.
+4. Buttons and inputs are rounded pills/blocks (see button variants below),
+   not left-border accents. `border-l-4` is preserved in exactly two
+   non-button places: the active desktop sidebar nav indicator, and
+   markdown blockquotes.
 5. The only animation is `slideUp` on page entry (translateY 8px→0, opacity 0→1, 300ms ease-out).
 6. The Journal module is the most important screen in the app — it must feel like
    a notebook page, not a form: generous line-height, minimal chrome, plain textareas.
 
 ### Button variants
-- Primary: `bg-moss text-white border-l-4 border-moss-dark`
-- Secondary: `bg-transparent border border-cloud border-l-4 border-ink`
-- Ghost: `text-muted border-l-4 border-transparent`, hover shows moss border
+- Primary: `rounded-xl bg-moss px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-moss-dark transition-colors`
+- Secondary: `rounded-xl border border-cloud bg-paper px-5 py-2.5 text-sm font-medium text-ink hover:border-moss hover:bg-cloud/60 transition-colors`
+- Ghost: `rounded-xl px-3 py-2 text-sm font-medium text-muted hover:bg-cloud/60 hover:text-ink transition-colors`
+- Small inline toggle/pill (toolbar buttons, row actions): `rounded-lg`
+  variants, active state `bg-moss/10 text-moss-dark`, a destructive/warning
+  variant uses `bg-amber/10 text-amber`.
 
 ### Cards
-White background, `border border-cloud`, no shadow, no border-radius.
+`rounded-2xl border border-cloud bg-white shadow-sm` (add `overflow-hidden`
+when a card wraps an image so corners clip cleanly).
+
+### Inputs
+`rounded-xl border border-cloud bg-paper px-3 py-2.5 focus:outline-none
+focus:border-moss focus:ring-1 focus:ring-moss/30 transition-colors`.
+
+### Icons
+`shared/components/icon/icon.component.ts` — a dumb standalone `app-icon`
+component (`@Input({ required: true }) name: IconName`, `@Input() size`)
+with one inline `<svg>` per nav item (`home`/`puzzle`/`learn`/`journal`/
+`blog`/`progress`), colored via `currentColor` from the parent's `text-*`
+class. Used in the sidebar/mobile nav and on each placeholder page's
+"coming soon" card.
 
 ## Modules (V1)
 1. **Home** — daily dashboard: greeting, streak, today's puzzle/lesson, journal preview.
@@ -169,6 +198,7 @@ White background, `border border-cloud`, no shadow, no border-radius.
 - No notifications or reminders.
 - No social features, no real auth, no multi-user support.
 - No AI chat.
+- No mascot or character — personality comes from color, shape, and icons.
 - No loading spinners, no infinite scroll. No rich text editor — **except**
   the Blog create/edit page, which is a documented, explicit exception (see
   Blog module specifics above).
