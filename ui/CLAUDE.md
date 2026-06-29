@@ -1,4 +1,4 @@
-# Mental Models Gym — Claude Code Context
+# Thinkingify — Claude Code Context
 
 ## Build status (last updated 2026-06-29)
 
