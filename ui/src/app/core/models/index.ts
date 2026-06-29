@@ -1,0 +1,86 @@
+export interface Puzzle {
+  id: string;
+  type: 'number-pattern' | 'logic' | 'olympiad' | 'visual';
+  title: string;
+  prompt: string;
+  hint?: string;
+  answer: string;
+  explanation: string;
+  difficulty: 1 | 2 | 3;
+}
+
+export interface Lesson {
+  id: string;
+  title: string;
+  subject: 'math' | 'science' | 'philosophy' | 'language' | 'history';
+  fact: string;
+  deeperThought: string;
+  videoUrl?: string;
+  pausePrompt: string;
+  source?: string;
+}
+
+export interface JournalEntry {
+  id: string;
+  date: string; // ISO date string YYYY-MM-DD
+  title: string;
+  whatILearned: string;
+  whyIThinkItsTrue: string;
+  myOwnExample: string;
+  questionsIHave: string;
+  whatIllTryTomorrow: string;
+  linkedLessonId?: string;
+}
+
+export type BlogPostStatus = 'draft' | 'pending_review' | 'published' | 'archived';
+
+export interface BlogPost {
+  id: string;
+  title: string;
+  tagline: string;
+  contentMarkdown: string;
+  coverImageDataUrl?: string;
+  status: BlogPostStatus;
+  createdAt: string; // ISO datetime
+  updatedAt: string; // ISO datetime
+  publishedAt?: string; // ISO datetime
+}
+
+export interface ProgressStats {
+  articlesWritten: number;
+  puzzlesSolvedCount: number;
+  lessonsCompletedCount: number;
+  questionsAsked: number;
+  currentStreak: number;
+  longestStreak: number;
+  totalDaysLearned: number;
+  lastActiveDate: string | null;
+}
+
+/**
+ * Root persisted shape, stored under a single localStorage key.
+ * Only raw facts are persisted — counts and streaks are derived in
+ * ProgressService via computed(), never stored directly.
+ */
+export interface AppState {
+  version: number;
+  journalEntries: JournalEntry[];
+  solvedPuzzleIds: string[];
+  completedLessonIds: string[];
+  blogPosts: BlogPost[];
+  /** Distinct YYYY-MM-DD entries, one per day with any qualifying activity. */
+  activityDates: string[];
+}
+
+export const APP_STATE_VERSION = 1;
+
+export function createEmptyAppState(): AppState {
+  return {
+    version: APP_STATE_VERSION,
+    journalEntries: [],
+    solvedPuzzleIds: [],
+    completedLessonIds: [],
+    blogPosts: [],
+    activityDates: [],
+  };
+}

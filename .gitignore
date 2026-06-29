@@ -1,0 +1,4 @@
+# OS / editor junk not already covered by ui/.gitignore
+.DS_Store
+Thumbs.db
+*.swp
