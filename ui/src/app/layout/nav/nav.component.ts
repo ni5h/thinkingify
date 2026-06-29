@@ -23,7 +23,7 @@ const NAV_ITEMS: NavItem[] = [
     <!-- Desktop sidebar -->
     <nav class="hidden md:flex md:flex-col md:w-56 md:shrink-0 md:h-screen md:sticky md:top-0 border-r border-cloud bg-paper">
       <div class="px-6 py-8">
-        <span class="font-display text-xl text-ink">Mental Models Gym</span>
+        <span class="font-display text-xl text-ink">Thinkingify</span>
       </div>
       <ul class="flex flex-col gap-1 px-3">
         @for (item of items; track item.path) {

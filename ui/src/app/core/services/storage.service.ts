@@ -1,7 +1,8 @@
 import { Injectable, signal } from '@angular/core';
 import { AppState, APP_STATE_VERSION, createEmptyAppState } from '../models';
 
-const STORAGE_KEY = 'mental-models-gym:state';
+const STORAGE_KEY = 'thinkingify:state';
+const LEGACY_STORAGE_KEY = 'mental-models-gym:state';
 
 /**
  * Single adapter over localStorage. No other service or component should
@@ -47,12 +48,13 @@ export class StorageService {
   }
 
   private readFromLocalStorage(): AppState {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(LEGACY_STORAGE_KEY);
     if (!raw) {
       const empty = createEmptyAppState();
       localStorage.setItem(STORAGE_KEY, JSON.stringify(empty));
       return empty;
     }
+    localStorage.removeItem(LEGACY_STORAGE_KEY);
 
     try {
       return this.migrate(JSON.parse(raw) as AppState);

@@ -1,4 +1,4 @@
-# Mental Models Gym — Claude Code Context
+# Thinkingify — Claude Code Context
 
 ## Build status (last updated 2026-06-29)
 
@@ -30,15 +30,31 @@ Done:
 - `JournalService` — signals CRUD, calls `recordActivityToday()` on save
 - App shell (`layout/shell`, `layout/nav`) — desktop sidebar / mobile bottom
   nav, six lazy routes wired in `app.routes.ts`
-- Placeholder components for all six features (just a heading + "Phase N
-  builds this here" — not real implementations yet)
+- Placeholder components for Home, Puzzle, Learn, Journal, Progress (just a
+  heading + "Phase N builds this here" — not real implementations yet)
+- **Blog module (built out of phase order, per explicit request):**
+  `BlogService` (`core/services/blog.service.ts`) — full status workflow
+  (`create`/`update`/`submitForReview`/`backToDraft`/`publish`/`archive`/
+  `republish`/`delete`) plus `published`/`all` computed signals.
+  `core/utils/image.ts` — client-side resize/JPEG-compress for cover images.
+  Five routes under `features/blog/`: `blog-home.component.ts` (`/blog`,
+  published only), `blog-post.component.ts` (`/blog/:id`, renders markdown
+  via `marked` into `[innerHTML]` — Angular's default sanitizer handles the
+  XSS concern), `blog-manage.component.ts` (`/blog/manage`, every post +
+  status-appropriate action buttons), `blog-editor.component.ts`
+  (`/blog/manage/new` and `/blog/manage/:id/edit`, textarea + Preview
+  toggle, no rich-text toolbar). Markdown content styling lives in a
+  `.markdown-content` class in `styles.css` (no `@tailwindcss/typography`
+  dependency added). Verified end-to-end in a real browser: create → submit
+  → publish → public listing → detail page, plus cover image upload and
+  localStorage persistence across reload.
 
-Not started yet — next up is **Phase 2: Home Dashboard**
+Not started yet — **Phase 2: Home Dashboard**
 (`features/home/home.component.ts`: greeting, streak badge, today's
-puzzle/lesson quick-action cards, journal preview), then Phases 3–6 (Puzzle,
-Learn, Journal, Progress) per the module descriptions below, then the Blog
-module. `assets/data/puzzles.json` and `assets/data/lessons.json` have not
-been created/seeded yet.
+puzzle/lesson quick-action cards, journal preview), then Phases 3–5 (Puzzle,
+Learn, Journal), then Progress, per the module descriptions below.
+`assets/data/puzzles.json` and `assets/data/lessons.json` have not been
+created/seeded yet.
 
 Per the original brief: confirm with the user before starting each new phase
 rather than running straight through all of them.

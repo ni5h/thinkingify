@@ -12,3 +12,53 @@ html, body {
 body {
   font-family: 'DM Sans', sans-serif;
 }
+
+.markdown-content {
+  line-height: 1.75;
+}
+
+.markdown-content > * + * {
+  margin-top: 1em;
+}
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3 {
+  font-family: 'Fraunces', serif;
+  color: #1C1917;
+}
+
+.markdown-content h1 { font-size: 1.75rem; }
+.markdown-content h2 { font-size: 1.5rem; }
+.markdown-content h3 { font-size: 1.25rem; }
+
+.markdown-content a {
+  color: #4A7C59;
+  text-decoration: underline;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+  padding-left: 1.5em;
+}
+
+.markdown-content ul { list-style-type: disc; }
+.markdown-content ol { list-style-type: decimal; }
+
+.markdown-content blockquote {
+  border-left: 4px solid #F0EFE9;
+  padding-left: 1em;
+  color: #78716C;
+}
+
+.markdown-content code {
+  font-family: 'DM Mono', monospace;
+  background-color: #F0EFE9;
+  padding: 0.1em 0.3em;
+}
+
+.markdown-content pre code {
+  display: block;
+  padding: 1em;
+  overflow-x: auto;
+}

@@ -9,6 +9,13 @@ export const routes: Routes = [
     path: 'journal',
     loadComponent: () => import('./features/journal/journal-list.component'),
   },
-  { path: 'blog', loadComponent: () => import('./features/blog/blog.component') },
+  { path: 'blog/manage/new', loadComponent: () => import('./features/blog/blog-editor.component') },
+  {
+    path: 'blog/manage/:id/edit',
+    loadComponent: () => import('./features/blog/blog-editor.component'),
+  },
+  { path: 'blog/manage', loadComponent: () => import('./features/blog/blog-manage.component') },
+  { path: 'blog/:id', loadComponent: () => import('./features/blog/blog-post.component') },
+  { path: 'blog', loadComponent: () => import('./features/blog/blog-home.component') },
   { path: 'progress', loadComponent: () => import('./features/progress/progress.component') },
 ];
