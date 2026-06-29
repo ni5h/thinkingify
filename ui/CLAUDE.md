@@ -1,15 +1,26 @@
 # Mental Models Gym — Claude Code Context
 
-## Build status (last updated 2026-06-28)
+## Build status (last updated 2026-06-29)
 
 **Phase 1 (Foundation) is complete and verified.** `ng build` and `ng serve`
 both run clean; navigation across all six routes confirmed in a real browser
 at desktop and mobile widths (screenshots via headless Chrome).
 
+**Project restructured and pushed to GitHub:** the repo root is now
+`thinkingify/` (renamed from `thinking_platform/`), with this Angular app
+living at `thinkingify/ui/` and `thinkingify/api/` as an empty placeholder
+for the future backend. Public repo: https://github.com/ni5h/thinkingify.
+Deployed via GitHub Actions (`.github/workflows/deploy-ui.yml`) to GitHub
+Pages at https://ni5h.github.io/thinkingify/ — base-href is `/thinkingify/`
+and there's a build-step copy of `index.html` to `404.html` for SPA routing
+fallback. The Angular project identifier and `package.json` name were
+renamed from `mental-models-gym` to `thinkingify-ui` to match; build output
+is now at `dist/thinkingify-ui/browser`.
+
 Done:
-- Angular 19 project scaffolded at `mental-models-gym/` (Node 22 pinned via
-  `.nvmrc` — Node 24 is not yet supported by Angular and was the default on
-  this machine; `source ~/.nvm/nvm.sh && nvm use` before running anything)
+- Angular 19 project at `ui/` (Node 22 pinned via `.nvmrc` — Node 24 is not
+  yet supported by Angular and was the default on this machine;
+  `source ~/.nvm/nvm.sh && nvm use` before running anything)
 - Tailwind v3 configured with the palette/fonts/animation tokens below
 - `core/models/index.ts` — all interfaces incl. `AppState.activityDates`
 - `StorageService` (`core/services/storage.service.ts`) — state held as a
