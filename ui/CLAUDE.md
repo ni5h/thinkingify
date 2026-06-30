@@ -63,6 +63,15 @@ Done:
   `onUpdate`/`onSelectionUpdate`. The Link button uses `window.prompt()`
   (same native-dialog precedent as the delete `confirm()` in
   `blog-manage.component.ts`) rather than a custom modal.
+- **Vision homepage + collapsible sidebar (explicit user request):** root
+  path `/` now loads `features/vision/vision.component.ts`, a static
+  mission/overview page (hero, "why this exists" blurb, a 6-card module
+  overview linking into each route) — reached via the sidebar wordmark, not
+  one of the 6 module tabs. `/home` is unchanged (still the Phase 2
+  dashboard placeholder). `layout/nav/nav.component.ts` gained a hamburger
+  toggle (`collapsed` signal, local UI state only — not persisted) that
+  shrinks the desktop sidebar to an icon-only rail; the mobile bottom nav is
+  unaffected.
 - **"Warm & rounded" visual refresh (explicit user request):** re-skinned
   Shell/Nav, the full Blog module, and all 5 placeholder pages from the old
   flat/left-border-accent look to rounded corners + soft shadows (see Design

@@ -1,6 +1,6 @@
 import { Component, Input } from '@angular/core';
 
-export type IconName = 'home' | 'puzzle' | 'learn' | 'journal' | 'blog' | 'progress';
+export type IconName = 'home' | 'puzzle' | 'learn' | 'journal' | 'blog' | 'progress' | 'menu';
 
 @Component({
   selector: 'app-icon',
@@ -40,6 +40,11 @@ export type IconName = 'home' | 'puzzle' | 'learn' | 'journal' | 'blog' | 'progr
         <svg [attr.width]="size" [attr.height]="size" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
           <path d="M4 16 10 10l4 3 6-7" />
           <path d="M16 6h4v4" />
+        </svg>
+      }
+      @case ('menu') {
+        <svg [attr.width]="size" [attr.height]="size" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 7h16M4 12h16M4 17h16" />
         </svg>
       }
     }

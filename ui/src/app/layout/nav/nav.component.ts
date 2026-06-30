@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { IconComponent, IconName } from '../../shared/components/icon/icon.component';
 
@@ -23,20 +23,33 @@ const NAV_ITEMS: NavItem[] = [
   imports: [RouterLink, RouterLinkActive, IconComponent],
   template: `
     <!-- Desktop sidebar -->
-    <nav class="hidden md:flex md:flex-col md:w-60 md:shrink-0 md:h-screen md:sticky md:top-0 border-r border-cloud bg-paper">
-      <div class="px-6 py-9">
-        <span class="font-display text-xl text-ink">Thinkingify</span>
+    <nav [class]="sidebarClass()">
+      <div class="flex items-center gap-3 px-4 py-9">
+        <button
+          type="button"
+          (click)="collapsed.set(!collapsed())"
+          [attr.aria-label]="collapsed() ? 'Expand navigation' : 'Collapse navigation'"
+          class="shrink-0 rounded-lg p-2 text-muted hover:bg-cloud/60 hover:text-ink transition-colors"
+        >
+          <app-icon name="menu" [size]="20" />
+        </button>
+        @if (!collapsed()) {
+          <a routerLink="/" class="font-display text-xl text-ink hover:text-moss transition-colors">Thinkingify</a>
+        }
       </div>
       <ul class="flex flex-col gap-1.5 px-3">
         @for (item of items; track item.path) {
           <li>
             <a
               [routerLink]="item.path"
+              [attr.title]="collapsed() ? item.label : null"
               routerLinkActive="bg-moss/10 border-l-4 border-moss text-ink rounded-r-xl"
-              class="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-muted border-l-4 border-transparent rounded-r-xl hover:bg-cloud/60 hover:border-moss/40 hover:text-ink transition-colors"
+              [class]="linkClass()"
             >
               <app-icon [name]="item.icon" [size]="20" />
-              <span>{{ item.label }}</span>
+              @if (!collapsed()) {
+                <span>{{ item.label }}</span>
+              }
             </a>
           </li>
         }
@@ -64,4 +77,16 @@ const NAV_ITEMS: NavItem[] = [
 })
 export class NavComponent {
   readonly items = NAV_ITEMS;
+  readonly collapsed = signal(false);
+
+  sidebarClass(): string {
+    const width = this.collapsed() ? 'md:w-20' : 'md:w-60';
+    return `hidden md:flex md:flex-col ${width} md:shrink-0 md:h-screen md:sticky md:top-0 border-r border-cloud bg-paper transition-[width] duration-200`;
+  }
+
+  linkClass(): string {
+    return this.collapsed()
+      ? 'flex items-center justify-center px-2 py-2.5 text-sm font-medium text-muted border-l-4 border-transparent rounded-r-xl hover:bg-cloud/60 hover:border-moss/40 hover:text-ink transition-colors'
+      : 'flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-muted border-l-4 border-transparent rounded-r-xl hover:bg-cloud/60 hover:border-moss/40 hover:text-ink transition-colors';
+  }
 }
