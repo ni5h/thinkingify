@@ -12,7 +12,7 @@ import { resizeAndCompressImage } from '../../core/utils/image';
   standalone: true,
   imports: [RouterLink],
   template: `
-    <a routerLink="/blog/manage" class="text-sm text-muted hover:text-ink border-b border-transparent hover:border-ink">
+    <a routerLink="/blog/manage" class="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-muted hover:bg-cloud/60 hover:text-ink transition-colors">
       &larr; Back to manage
     </a>
 
@@ -25,7 +25,7 @@ import { resizeAndCompressImage } from '../../core/utils/image';
           type="text"
           [value]="title()"
           (input)="title.set($any($event.target).value)"
-          class="border border-cloud px-3 py-2 bg-paper"
+          class="rounded-xl border border-cloud bg-paper px-3 py-2.5 focus:outline-none focus:border-moss focus:ring-1 focus:ring-moss/30 transition-colors"
         />
       </label>
 
@@ -35,7 +35,7 @@ import { resizeAndCompressImage } from '../../core/utils/image';
           type="text"
           [value]="tagline()"
           (input)="tagline.set($any($event.target).value)"
-          class="border border-cloud px-3 py-2 bg-paper"
+          class="rounded-xl border border-cloud bg-paper px-3 py-2.5 focus:outline-none focus:border-moss focus:ring-1 focus:ring-moss/30 transition-colors"
         />
       </label>
 
@@ -44,8 +44,8 @@ import { resizeAndCompressImage } from '../../core/utils/image';
         <input type="file" accept="image/*" (change)="onCoverImageSelected($event)" />
         @if (coverImageDataUrl()) {
           <div class="mt-2 flex items-start gap-3">
-            <img [src]="coverImageDataUrl()" alt="Cover preview" class="h-32 w-auto object-cover border border-cloud" />
-            <button type="button" (click)="coverImageDataUrl.set(undefined)" class="text-sm text-muted border-b border-muted">
+            <img [src]="coverImageDataUrl()" alt="Cover preview" class="h-32 w-auto object-cover rounded-xl border border-cloud" />
+            <button type="button" (click)="coverImageDataUrl.set(undefined)" class="rounded-lg px-3 py-1.5 text-sm font-medium text-muted hover:bg-cloud/60 hover:text-ink transition-colors">
               Remove
             </button>
           </div>
@@ -55,7 +55,7 @@ import { resizeAndCompressImage } from '../../core/utils/image';
       <div class="flex flex-col gap-1">
         <span class="text-sm font-medium text-muted">Content</span>
 
-        <div class="flex flex-wrap gap-3 border border-cloud border-b-0 px-3 py-2 bg-paper">
+        <div class="flex flex-wrap gap-1 rounded-t-xl border border-cloud border-b-0 px-3 py-2 bg-paper">
           <button type="button" (click)="toggleBold()" [class]="markClass('bold')">B</button>
           <button type="button" (click)="toggleItalic()" [class]="markClass('italic')">I</button>
           <button type="button" (click)="toggleStrike()" [class]="markClass('strike')">S</button>
@@ -68,14 +68,14 @@ import { resizeAndCompressImage } from '../../core/utils/image';
           <button type="button" (click)="setLink()" [class]="markClass('link')">Link</button>
         </div>
 
-        <div #editorEl class="markdown-content border border-cloud px-4 py-3 min-h-[16rem]"></div>
+        <div #editorEl class="markdown-content rounded-b-xl border border-cloud px-4 py-3 min-h-[16rem] focus-within:border-moss transition-colors"></div>
       </div>
 
       <div class="flex gap-3 mt-2">
-        <button type="button" (click)="save()" class="bg-moss text-white border-l-4 border-moss-dark px-4 py-2 text-sm font-medium">
+        <button type="button" (click)="save()" class="rounded-xl bg-moss px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-moss-dark transition-colors">
           Save
         </button>
-        <a routerLink="/blog/manage" class="text-muted border-l-4 border-transparent px-4 py-2 text-sm font-medium">
+        <a routerLink="/blog/manage" class="rounded-xl px-5 py-2.5 text-sm font-medium text-muted hover:bg-cloud/60 hover:text-ink transition-colors">
           Cancel
         </a>
       </div>
@@ -138,7 +138,9 @@ export default class BlogEditorComponent implements AfterViewInit, OnDestroy {
 
   markClass(name: string): string {
     const active = this.activeMarks().has(name);
-    return active ? 'text-sm text-ink border-b border-ink' : 'text-sm text-muted border-b border-transparent hover:border-muted';
+    return active
+      ? 'rounded-lg bg-moss/10 px-2.5 py-1.5 text-sm font-medium text-moss-dark'
+      : 'rounded-lg px-2.5 py-1.5 text-sm text-muted hover:bg-cloud hover:text-ink transition-colors';
   }
 
   toggleBold(): void {

@@ -10,7 +10,7 @@ import { BlogService } from '../../core/services/blog.service';
   template: `
     <div class="flex items-baseline justify-between gap-4">
       <h1 class="font-display text-3xl">Blog</h1>
-      <a routerLink="/blog/manage" class="text-sm text-muted hover:text-ink border-b border-transparent hover:border-ink">
+      <a routerLink="/blog/manage" class="rounded-xl px-3 py-2 text-sm font-medium text-muted hover:bg-cloud/60 hover:text-ink transition-colors">
         Manage posts
       </a>
     </div>
@@ -20,7 +20,7 @@ import { BlogService } from '../../core/services/blog.service';
     } @else {
       <div class="mt-8 flex flex-col gap-8">
         @for (post of posts(); track post.id) {
-          <a [routerLink]="['/blog', post.id]" class="block border border-cloud">
+          <a [routerLink]="['/blog', post.id]" class="block rounded-2xl border border-cloud bg-white shadow-sm overflow-hidden hover:shadow-md transition-shadow">
             @if (post.coverImageDataUrl) {
               <img [src]="post.coverImageDataUrl" [alt]="post.title" class="w-full h-48 object-cover" />
             }
