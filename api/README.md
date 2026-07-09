@@ -1,7 +1,8 @@
 # thinkingify api
 
-Thinkingify Studio's backend: FastAPI + Supabase Postgres/Storage. Powers
-the Blog module (`/api/v1/content`, `/api/v1/auth`, `/api/v1/uploads`) — see
+Thinkingify's backend: FastAPI + Supabase Postgres/Storage. Currently powers
+the Blog module (Thinkingify Studio) — `/api/v1/content`, `/api/v1/auth`,
+`/api/v1/uploads` — see
 `ui/CLAUDE.md` for the full Phase 1 design/status. The other five modules
 (Home, Puzzle, Learn, Journal, Progress) are still frontend-only/localStorage
 and untouched by this backend.

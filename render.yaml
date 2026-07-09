@@ -1,13 +1,13 @@
 services:
   - type: web
-    name: thinkingify-studio-api
+    name: thinkingify-api
     runtime: docker
     dockerfilePath: ./api/Dockerfile
     dockerContext: ./api
     plan: free
     envVars:
       - key: APP_NAME
-        value: Thinkingify Studio API
+        value: Thinkingify API
       - key: DEBUG
         value: "false"
       - key: DATABASE_URL

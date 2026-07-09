@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "thinkingify-api"
 version = "0.1.0"
-description = "Thinkingify Studio backend — FastAPI + Supabase Postgres/Storage"
+description = "Thinkingify backend — FastAPI + Supabase Postgres/Storage"
 authors = []
 packages = [{ include = "app" }]
 

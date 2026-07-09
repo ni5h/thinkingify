@@ -10,8 +10,9 @@ deep thinking, reflection, and creativity instead of passive screen time.
   **Thinkingify Studio** — is backend-backed as of v0.1. See
   [`ui/CLAUDE.md`](ui/CLAUDE.md) for architecture, design system, and
   current build status.
-- [`api/`](api/) — FastAPI + Supabase (Postgres + Storage) backend for
-  Thinkingify Studio. See [`api/README.md`](api/README.md) for local setup.
+- [`api/`](api/) — Thinkingify's FastAPI + Supabase (Postgres + Storage)
+  backend, currently powering Thinkingify Studio. See
+  [`api/README.md`](api/README.md) for local setup.
 
 ## Running locally
 
