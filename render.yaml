@@ -1,0 +1,34 @@
+services:
+  - type: web
+    name: thinkingify-studio-api
+    runtime: docker
+    dockerfilePath: ./api/Dockerfile
+    dockerContext: ./api
+    plan: free
+    envVars:
+      - key: APP_NAME
+        value: Thinkingify Studio API
+      - key: DEBUG
+        value: "false"
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "30"
+      - key: JWT_REFRESH_TOKEN_EXPIRE_DAYS
+        value: "7"
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_STORAGE_BUCKET
+        value: thinkingify
+      - key: ADMIN_EMAILS
+        sync: false
+      - key: AUTHOR_EMAILS
+        sync: false
+      - key: CORS_ORIGINS
+        value: https://ni5h.github.io

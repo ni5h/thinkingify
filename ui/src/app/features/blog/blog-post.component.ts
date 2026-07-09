@@ -1,9 +1,9 @@
-import { Component, computed, inject } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { RouterLink, ActivatedRoute } from '@angular/router';
-import { toSignal } from '@angular/core/rxjs-interop';
 import { marked } from 'marked';
 import { BlogService } from '../../core/services/blog.service';
+import { Content } from '../../core/models/content';
 
 @Component({
   selector: 'app-blog-post',
@@ -16,33 +16,37 @@ import { BlogService } from '../../core/services/blog.service';
       </a>
 
       <article class="mt-6">
-        @if (post()!.coverImageDataUrl) {
-          <img [src]="post()!.coverImageDataUrl" [alt]="post()!.title" class="w-full h-64 object-cover rounded-2xl shadow-sm" />
+        @if (post()!.feature_image_url) {
+          <img [src]="post()!.feature_image_url" [alt]="post()!.title" class="w-full h-64 object-cover rounded-2xl shadow-sm" />
         }
         <h1 class="font-display text-4xl text-ink mt-6">{{ post()!.title }}</h1>
-        <p class="text-muted mt-2">{{ post()!.tagline }}</p>
-        <p class="text-xs text-muted font-mono mt-3">{{ post()!.publishedAt | date: 'mediumDate' }}</p>
+        <p class="text-muted mt-2">{{ post()!.summary }}</p>
+        <p class="text-xs text-muted font-mono mt-3">{{ post()!.published_at | date: 'mediumDate' }}</p>
         <div class="markdown-content mt-8" [innerHTML]="renderedContent()"></div>
       </article>
-    } @else {
+    } @else if (post() === null) {
       <p class="text-muted mt-6">Post not found.</p>
       <a routerLink="/blog" class="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-ink hover:bg-cloud/60 transition-colors">&larr; Back to Blog</a>
     }
   `,
 })
-export default class BlogPostComponent {
+export default class BlogPostComponent implements OnInit {
   private readonly blog = inject(BlogService);
   private readonly route = inject(ActivatedRoute);
 
-  private readonly id = toSignal(this.route.paramMap, { requireSync: true });
+  private readonly slug = this.route.snapshot.paramMap.get('slug') ?? '';
 
-  readonly post = computed(() => {
-    const post = this.blog.getById(this.id().get('id') ?? '');
-    return post?.status === 'published' ? post : undefined;
-  });
+  // undefined while loading, null when the slug doesn't resolve to a
+  // published post (server enforces this — see /content/published/{slug}).
+  readonly post = signal<Content | null | undefined>(undefined);
 
   readonly renderedContent = computed(() => {
     const post = this.post();
-    return post ? marked.parse(post.contentMarkdown, { async: false }) : '';
+    return post ? marked.parse(post.content_markdown, { async: false }) : '';
   });
+
+  async ngOnInit(): Promise<void> {
+    const post = await this.blog.getPublishedBySlug(this.slug);
+    this.post.set(post ?? null);
+  }
 }

@@ -1,96 +1,85 @@
-import { Injectable, computed, inject } from '@angular/core';
-import { StorageService } from './storage.service';
-import { BlogPost } from '../models';
+import { Injectable, inject } from '@angular/core';
+import { HttpClient, httpResource } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
+import { Content, ContentDraft, ContentListItem } from '../models/content';
 
-export type BlogPostDraft = Pick<BlogPost, 'title' | 'tagline' | 'contentMarkdown'> & {
-  coverImageDataUrl?: string;
-};
-
+/**
+ * API-backed replacement for the old localStorage BlogService. Reads use
+ * httpResource() (signals, no manual subscription management, consistent
+ * with the project's "no RxJS for app state" rule); writes are plain async
+ * methods that .reload() the relevant resource on success — the one real
+ * architectural loss vs. localStorage, where every read auto-derived from
+ * one signal. See ui/CLAUDE.md and api/app/services/content_service.py.
+ */
 @Injectable({ providedIn: 'root' })
 export class BlogService {
-  private readonly storage = inject(StorageService);
+  private readonly http = inject(HttpClient);
 
-  readonly all = computed(() =>
-    [...this.storage.state().blogPosts].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-  );
+  readonly publishedResource = httpResource<ContentListItem[]>(() => '/api/v1/content/published');
+  readonly allResource = httpResource<ContentListItem[]>(() => '/api/v1/content');
 
-  readonly published = computed(() =>
-    this.all()
-      .filter((post) => post.status === 'published')
-      .sort((a, b) => (b.publishedAt ?? '').localeCompare(a.publishedAt ?? ''))
-  );
+  readonly published = this.publishedResource.value;
+  readonly all = this.allResource.value;
 
-  getById(id: string): BlogPost | undefined {
-    return this.storage.state().blogPosts.find((post) => post.id === id);
+  async getPublishedBySlug(slug: string): Promise<Content | undefined> {
+    try {
+      return await firstValueFrom(this.http.get<Content>(`/api/v1/content/published/${slug}`));
+    } catch {
+      return undefined;
+    }
   }
 
-  create(draft: BlogPostDraft): BlogPost {
-    const now = new Date().toISOString();
-    const post: BlogPost = {
-      ...draft,
-      id: crypto.randomUUID(),
-      status: 'draft',
-      createdAt: now,
-      updatedAt: now,
-    };
-    this.storage.update((state) => ({
-      ...state,
-      blogPosts: [...state.blogPosts, post],
-    }));
+  async getById(id: string): Promise<Content | undefined> {
+    try {
+      return await firstValueFrom(this.http.get<Content>(`/api/v1/content/${id}`));
+    } catch {
+      return undefined;
+    }
+  }
+
+  async create(draft: ContentDraft): Promise<Content> {
+    const post = await firstValueFrom(this.http.post<Content>('/api/v1/content', draft));
+    this.reloadAll();
     return post;
   }
 
-  update(id: string, changes: Partial<BlogPostDraft>): void {
-    this.storage.update((state) => ({
-      ...state,
-      blogPosts: state.blogPosts.map((post) =>
-        post.id === id ? { ...post, ...changes, updatedAt: new Date().toISOString() } : post
-      ),
-    }));
+  async update(id: string, changes: Partial<ContentDraft>): Promise<void> {
+    await firstValueFrom(this.http.patch<Content>(`/api/v1/content/${id}`, changes));
+    this.reloadAll();
   }
 
-  submitForReview(id: string): void {
-    this.setStatus(id, 'pending_review');
+  async submitForReview(id: string): Promise<void> {
+    await this.transition(id, 'submit-for-review');
   }
 
-  backToDraft(id: string): void {
-    this.setStatus(id, 'draft');
+  async backToDraft(id: string): Promise<void> {
+    await this.transition(id, 'back-to-draft');
   }
 
-  publish(id: string): void {
-    const now = new Date().toISOString();
-    this.storage.update((state) => ({
-      ...state,
-      blogPosts: state.blogPosts.map((post) =>
-        post.id === id
-          ? { ...post, status: 'published', publishedAt: post.publishedAt ?? now, updatedAt: now }
-          : post
-      ),
-    }));
-    this.storage.recordActivityToday();
+  async publish(id: string): Promise<void> {
+    await this.transition(id, 'publish');
   }
 
-  archive(id: string): void {
-    this.setStatus(id, 'archived');
+  async archive(id: string): Promise<void> {
+    await this.transition(id, 'archive');
   }
 
-  republish(id: string): void {
-    this.setStatus(id, 'published');
+  async republish(id: string): Promise<void> {
+    await this.transition(id, 'republish');
   }
 
-  delete(id: string): void {
-    this.storage.update((state) => ({
-      ...state,
-      blogPosts: state.blogPosts.filter((post) => post.id !== id),
-    }));
+  async delete(id: string): Promise<void> {
+    await firstValueFrom(this.http.delete<void>(`/api/v1/content/${id}`));
+    this.reloadAll();
   }
 
-  private setStatus(id: string, status: BlogPost['status']): void {
-    this.storage.update((state) => ({
-      ...state,
-      blogPosts: state.blogPosts.map((post) =>
-        post.id === id ? { ...post, status, updatedAt: new Date().toISOString() } : post
-      ),
-    }));
+  private async transition(id: string, action: string): Promise<void> {
+    await firstValueFrom(this.http.post<Content>(`/api/v1/content/${id}/${action}`, {}));
+    this.reloadAll();
+  }
+
+  private reloadAll(): void {
+    this.allResource.reload();
+    this.publishedResource.reload();
   }
 }

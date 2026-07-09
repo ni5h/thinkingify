@@ -32,20 +32,6 @@ export interface JournalEntry {
   linkedLessonId?: string;
 }
 
-export type BlogPostStatus = 'draft' | 'pending_review' | 'published' | 'archived';
-
-export interface BlogPost {
-  id: string;
-  title: string;
-  tagline: string;
-  contentMarkdown: string;
-  coverImageDataUrl?: string;
-  status: BlogPostStatus;
-  createdAt: string; // ISO datetime
-  updatedAt: string; // ISO datetime
-  publishedAt?: string; // ISO datetime
-}
-
 export interface ProgressStats {
   articlesWritten: number;
   puzzlesSolvedCount: number;
@@ -61,13 +47,16 @@ export interface ProgressStats {
  * Root persisted shape, stored under a single localStorage key.
  * Only raw facts are persisted — counts and streaks are derived in
  * ProgressService via computed(), never stored directly.
+ *
+ * Blog/Studio content is NOT part of this state — it lives in the backend
+ * (Postgres via the FastAPI API) as of Thinkingify Studio v0.1. See
+ * core/services/blog.service.ts and core/models/content.ts.
  */
 export interface AppState {
   version: number;
   journalEntries: JournalEntry[];
   solvedPuzzleIds: string[];
   completedLessonIds: string[];
-  blogPosts: BlogPost[];
   /** Distinct YYYY-MM-DD entries, one per day with any qualifying activity. */
   activityDates: string[];
 }
@@ -80,7 +69,6 @@ export function createEmptyAppState(): AppState {
     journalEntries: [],
     solvedPuzzleIds: [],
     completedLessonIds: [],
-    blogPosts: [],
     activityDates: [],
   };
 }

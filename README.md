@@ -5,16 +5,29 @@ deep thinking, reflection, and creativity instead of passive screen time.
 
 ## Structure
 
-- [`ui/`](ui/) — Angular 19 frontend. Frontend-only V1:
-  no auth, no backend, all state in localStorage. See [`ui/CLAUDE.md`](ui/CLAUDE.md)
-  for architecture, design system, and current build status.
-- [`api/`](api/) — placeholder for a future backend. Empty in V1 by design.
+- [`ui/`](ui/) — Angular 20 frontend. Home/Puzzle/Learn/Journal/Progress are
+  still frontend-only (localStorage, no auth). The Blog module —
+  **Thinkingify Studio** — is backend-backed as of v0.1. See
+  [`ui/CLAUDE.md`](ui/CLAUDE.md) for architecture, design system, and
+  current build status.
+- [`api/`](api/) — FastAPI + Supabase (Postgres + Storage) backend for
+  Thinkingify Studio. See [`api/README.md`](api/README.md) for local setup.
 
 ## Running locally
 
 ```bash
+# frontend
 cd ui
-nvm use   # pins Node 22 — Angular 19 doesn't yet support Node 24
+nvm use   # pins Node 22
 npm install
 npm start
+
+# backend (needs a Supabase project + Google OAuth client — see api/README.md)
+cd api
+poetry install
+poetry run alembic upgrade head
+poetry run uvicorn app.main:app --reload
+
+# or both at once:
+docker compose up
 ```

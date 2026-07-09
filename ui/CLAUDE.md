@@ -1,5 +1,71 @@
 # Thinkingify — Claude Code Context
 
+## Thinkingify Studio v0.1 — Phase 1 (last updated 2026-07-07)
+
+The Blog module has been rebuilt as **Thinkingify Studio**: a real FastAPI +
+Supabase (Postgres + Storage) backend replaces localStorage for blog content
+only. See `thinkingify/api/` (new) and the plan at the time this was built
+for full design rationale. Auth pattern ported from the sibling `sweet_pills`
+repo (Google Identity Services + a Studio-issued JWT, not Supabase GoTrue
+Auth), adapted to add an email allow-list (`ADMIN_EMAILS`/`AUTHOR_EMAILS`) —
+sign-in itself is rejected with 403 for any email not on the list, since
+Studio only ever has Admin/Author accounts, never open signup.
+
+**Code-complete and verified as far as possible without live credentials:**
+backend `pytest` suite (28 tests: allow-list resolution, full status
+state-machine incl. illegal-transition 409s, soft delete, slug collisions,
+author/admin scoping) passes; a full API smoke test against an in-memory DB
+exercised the entire lifecycle end-to-end (sign-in → create → submit →
+publish → public listing → slug lookup → archive → republish → soft delete)
+through the real FastAPI routes. Frontend builds clean on both `development`
+and `production` configs post-upgrade. **Not yet verified:** real Google
+sign-in, a real Supabase-hosted Postgres/Storage, and `docker compose up` —
+all require a live Supabase project + Google OAuth client, which weren't
+available in the environment this was built in (Supabase project creation
+and Google Cloud OAuth client are explicitly the user's own setup step; fill
+in `api/.env` from `api/.env.example` and `ui/src/environments/environment.ts`
+`googleClientId` once those exist, then re-run the exit-criteria checklist).
+
+**Angular upgraded 19.2 → 20.3** as part of this work (last step, after the
+API-backed conversion was verified, to avoid debugging two moving targets at
+once). `ng update @angular/core@20 @angular/cli@20` ran clean, one
+type-narrowing fix needed in the new dashboard component, no other breakage.
+
+**New backend `api/`** (Poetry, Python 3.11, FastAPI, SQLAlchemy async +
+asyncpg, Alembic, layered `router → service → model`, mirrors `sweet_pills`'s
+structure): `users` (google_sub/email/role, allow-list gated) and `content`
+(blog posts — `draft → pending_review → published ⇄ archived`, soft delete
+via `deleted_at`, unique `slug`) tables; `/api/v1/auth/*`, `/api/v1/content/*`,
+`/api/v1/uploads/feature-image` endpoints; Docker + `docker-compose.yml` for
+local dev (no local Postgres container — DB is Supabase-hosted; no
+Redis/Celery — not needed for this scope).
+
+**Frontend IA change:** authenticated post management moved from
+`/blog/manage*` to `/studio*` (`/studio` dashboard, `/studio/posts` list,
+`/studio/posts/new`, `/studio/posts/:id/edit`, `/studio/login`), gated by
+`authGuard`/`noAuthGuard`. Public reader routes (`/blog`, now `/blog/:slug`
+— slug replaces id) are unchanged in spirit, just API-backed. `BlogService`
+converted from synchronous localStorage-backed computed signals to
+`httpResource()` for reads + async `HttpClient` writes (each write
+`.reload()`s the relevant resource — the one real architectural loss vs.
+localStorage's fully-automatic derivation). TipTap editor, toolbar, and the
+warm/rounded design system were preserved verbatim; net-new in the editor:
+autosave (debounced `PATCH` on existing drafts), word count, reading time.
+Feature image upload now goes through a real backend-proxied endpoint to
+Supabase Storage (client still does the canvas resize/JPEG-compress pass
+first, now producing a `Blob` for multipart upload instead of a data URI).
+
+**Explicitly deferred** (named in the original plan, not designed/built):
+categories, tags, full Media Library (browse/search/reuse assets), homepage
+redesign (hero/philosophy/featured), settings, analytics, migrating the
+other five modules to a backend, and choosing a real production host for the
+API (Phase 1's deliverable is "runs via `docker compose up`," not a live URL).
+
+**Untouched by this work:** `/`, `/home`, `/puzzle`, `/learn`, `/journal`,
+`/progress` — still exactly the localStorage/`StorageService`-backed modules
+described below. `AppState` no longer includes `blogPosts` (removed; blog
+content lives in Postgres now, not the local state blob).
+
 ## Build status (last updated 2026-06-29)
 
 **Phase 1 (Foundation) is complete and verified.** `ng build` and `ng serve`

@@ -1,12 +1,10 @@
 /**
- * Resizes an image client-side and re-encodes it as JPEG so cover images fit
- * comfortably within localStorage's ~5-10MB per-origin cap.
+ * Resizes an image client-side and re-encodes it as JPEG so upload payloads
+ * stay small. Resolves a Blob (for multipart upload to the feature-image
+ * endpoint) rather than a data URI — the server re-encodes again on receipt
+ * (see api/app/core/storage.py), this is just to keep the upload itself small.
  */
-export function resizeAndCompressImage(
-  file: File,
-  maxWidth = 1000,
-  quality = 0.7
-): Promise<string> {
+export function resizeAndCompressImage(file: File, maxWidth = 1000, quality = 0.7): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(reader.error);
@@ -24,7 +22,11 @@ export function resizeAndCompressImage(
           return;
         }
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL('image/jpeg', quality));
+        canvas.toBlob(
+          (blob) => (blob ? resolve(blob) : reject(new Error('Could not encode image'))),
+          'image/jpeg',
+          quality
+        );
       };
       img.src = reader.result as string;
     };
