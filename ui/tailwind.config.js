@@ -11,6 +11,9 @@ module.exports = {
         'moss-dark': '#2E5238',
         amber: '#D97706',
         muted: '#78716C',
+        // Decorative "notebook sketch" marks only — never used on clickable
+        // elements. moss keeps sole ownership of anything interactive.
+        navy: '#33415C',
       },
       fontFamily: {
         display: ['Fraunces', 'serif'],
@@ -25,9 +28,16 @@ module.exports = {
           '0%': { transform: 'translateY(8px)', opacity: '0' },
           '100%': { transform: 'translateY(0)', opacity: '1' },
         },
+        // Distinct from slideUp (the shell's one-time page-entry animation) —
+        // this is the vision page's scroll-triggered, one-shot section reveal.
+        revealUp: {
+          '0%': { transform: 'translateY(12px)', opacity: '0' },
+          '100%': { transform: 'translateY(0)', opacity: '1' },
+        },
       },
       animation: {
         slideUp: 'slideUp 300ms ease-out',
+        revealUp: 'revealUp 400ms ease-out',
       },
     },
   },

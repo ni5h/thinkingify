@@ -3,6 +3,7 @@ import { authGuard, noAuthGuard } from './core/auth.guard';
 
 export const routes: Routes = [
   { path: '', loadComponent: () => import('./features/vision/vision.component') },
+  { path: 'profile', loadComponent: () => import('./features/profile/profile.component') },
   { path: 'home', loadComponent: () => import('./features/home/home.component') },
   { path: 'puzzle', loadComponent: () => import('./features/puzzle/puzzle.component') },
   { path: 'learn', loadComponent: () => import('./features/learn/learn.component') },

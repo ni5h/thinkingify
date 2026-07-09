@@ -32,6 +32,11 @@ export interface JournalEntry {
   linkedLessonId?: string;
 }
 
+export interface Profile {
+  name: string; // '' = unset
+  tagline: string; // '' = unset, e.g. "one curious eight-year-old"
+}
+
 export interface ProgressStats {
   articlesWritten: number;
   puzzlesSolvedCount: number;
@@ -59,9 +64,14 @@ export interface AppState {
   completedLessonIds: string[];
   /** Distinct YYYY-MM-DD entries, one per day with any qualifying activity. */
   activityDates: string[];
+  profile: Profile;
 }
 
-export const APP_STATE_VERSION = 1;
+// Bumped 1 -> 2 for the new `profile` field. StorageService.migrate() only
+// backfills createEmptyAppState() defaults when the stored version is
+// strictly less than this constant — without the bump, existing saved
+// state at version 1 would load with `profile: undefined` and crash.
+export const APP_STATE_VERSION = 2;
 
 export function createEmptyAppState(): AppState {
   return {
@@ -70,5 +80,6 @@ export function createEmptyAppState(): AppState {
     solvedPuzzleIds: [],
     completedLessonIds: [],
     activityDates: [],
+    profile: { name: '', tagline: '' },
   };
 }
