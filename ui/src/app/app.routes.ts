@@ -7,6 +7,8 @@ export const routes: Routes = [
   { path: 'dashboard', loadComponent: () => import('./features/dashboard/dashboard.component') },
   { path: 'puzzle', loadComponent: () => import('./features/puzzle/puzzle.component') },
   { path: 'learn', loadComponent: () => import('./features/learn/learn.component') },
+  { path: 'journal/new', loadComponent: () => import('./features/journal/journal-entry.component') },
+  { path: 'journal/:id', loadComponent: () => import('./features/journal/journal-entry.component') },
   {
     path: 'journal',
     loadComponent: () => import('./features/journal/journal-list.component'),

@@ -9,7 +9,7 @@ import { NavComponent } from '../nav/nav.component';
   template: `
     <div class="flex min-h-screen bg-paper text-ink">
       <app-nav />
-      <main class="flex-1 pb-20 md:pb-0">
+      <main class="flex-1 pt-14 pb-20 md:pt-0 md:pb-0">
         <div class="max-w-3xl mx-auto px-6 py-12 md:py-14 animate-slideUp">
           <router-outlet />
         </div>

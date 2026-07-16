@@ -9,8 +9,15 @@ import { AuthService } from '../../../core/services/auth.service';
   standalone: true,
   imports: [RouterLink, DatePipe],
   template: `
-    <h1 class="font-display text-3xl">Welcome, {{ auth.currentUser()?.name }}</h1>
-    <p class="text-muted mt-1">{{ auth.currentUser()?.role === 'admin' ? 'Admin' : 'Author' }} &middot; Thinkingify Studio</p>
+    <div class="flex items-baseline justify-between gap-4">
+      <div>
+        <h1 class="font-display text-3xl">Welcome, {{ auth.currentUser()?.name }}</h1>
+        <p class="text-muted mt-1">{{ auth.currentUser()?.role === 'admin' ? 'Admin' : 'Author' }} &middot; Thinkingify Studio</p>
+      </div>
+      <a routerLink="/studio/posts/new" class="rounded-xl bg-moss px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-moss-dark transition-colors">
+        New post
+      </a>
+    </div>
 
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-8">
       <div class="rounded-2xl border border-cloud bg-white shadow-sm p-5">

@@ -20,7 +20,7 @@ import { ProfileService } from '../../core/services/profile.service';
       <h2 class="font-display text-xl">Blog</h2>
 
       @if (publishedCount() === 0) {
-        <p class="text-muted mt-4">Nothing published yet. <a routerLink="/blog" class="text-moss-dark hover:underline">Visit the blog</a>.</p>
+        <p class="text-muted mt-4">Nothing published yet.</p>
       } @else {
         <div class="rounded-2xl border border-cloud bg-white shadow-sm p-5 mt-4 inline-block">
           <p class="text-xs text-muted font-mono">Posts published</p>
@@ -36,11 +36,11 @@ import { ProfileService } from '../../core/services/profile.service';
             </li>
           }
         </ul>
-
-        <a routerLink="/blog" class="inline-block mt-4 rounded-xl px-3 py-2 text-sm font-medium text-muted hover:bg-cloud/60 hover:text-ink transition-colors">
-          View all posts &rarr;
-        </a>
       }
+
+      <a routerLink="/blog" class="inline-block mt-4 rounded-xl px-3 py-2 text-sm font-medium text-muted hover:bg-cloud/60 hover:text-ink transition-colors">
+        View all posts &rarr;
+      </a>
     </section>
 
     <hr class="border-cloud mt-10" />
@@ -49,7 +49,7 @@ import { ProfileService } from '../../core/services/profile.service';
       <h2 class="font-display text-xl">Journal</h2>
 
       @if (journalCount() === 0) {
-        <p class="text-muted mt-4">No entries yet. <a routerLink="/journal" class="text-moss-dark hover:underline">Write your first one</a>.</p>
+        <p class="text-muted mt-4">No entries yet.</p>
       } @else {
         <div class="rounded-2xl border border-cloud bg-white shadow-sm p-5 mt-4 inline-block">
           <p class="text-xs text-muted font-mono">Entries written</p>
@@ -62,11 +62,11 @@ import { ProfileService } from '../../core/services/profile.service';
             <span class="font-mono ml-1">{{ entry.date | date: 'mediumDate' }}</span>
           </p>
         }
-
-        <a routerLink="/journal" class="inline-block mt-4 rounded-xl px-3 py-2 text-sm font-medium text-muted hover:bg-cloud/60 hover:text-ink transition-colors">
-          Write today's entry &rarr;
-        </a>
       }
+
+      <a routerLink="/journal" class="inline-block mt-4 rounded-xl px-3 py-2 text-sm font-medium text-muted hover:bg-cloud/60 hover:text-ink transition-colors">
+        Write today's entry &rarr;
+      </a>
     </section>
   `,
 })

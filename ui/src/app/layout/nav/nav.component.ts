@@ -56,6 +56,14 @@ const NAV_ITEMS: NavItem[] = [
       </ul>
     </nav>
 
+    <!-- Mobile top bar: the desktop sidebar's wordmark-to-/ link has no
+         equivalent in the bottom tab bar below (which is deliberately just
+         the 6 module tabs, not a 7th "mission page" tab), so give mobile a
+         separate way back to / here. -->
+    <div class="md:hidden fixed top-0 left-0 right-0 z-10 bg-paper border-b border-cloud px-4 py-3">
+      <a routerLink="/" class="font-display text-lg text-ink hover:text-moss transition-colors">Thinkingify</a>
+    </div>
+
     <!-- Mobile bottom nav -->
     <nav class="md:hidden fixed bottom-0 left-0 right-0 border-t border-cloud bg-paper z-10 shadow-[0_-2px_8px_rgba(28,25,23,0.06)]">
       <ul class="flex justify-between">
