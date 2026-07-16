@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, httpResource } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { Content, ContentDraft, ContentListItem } from '../models/content';
+import { AuthService } from './auth.service';
 
 /**
  * API-backed replacement for the old localStorage BlogService. Reads use
@@ -14,9 +15,17 @@ import { Content, ContentDraft, ContentListItem } from '../models/content';
 @Injectable({ providedIn: 'root' })
 export class BlogService {
   private readonly http = inject(HttpClient);
+  private readonly auth = inject(AuthService);
 
   readonly publishedResource = httpResource<ContentListItem[]>(() => '/api/v1/content/published');
-  readonly allResource = httpResource<ContentListItem[]>(() => '/api/v1/content');
+  // Gated on auth state: `allResource` is a class-field initializer, so it
+  // starts fetching the moment BlogService is injected anywhere — including
+  // public, unauthenticated pages (/dashboard, /blog, /blog/:slug). Returning
+  // undefined tells httpResource not to fetch; it re-evaluates reactively, so
+  // this starts fetching once the user actually signs in.
+  readonly allResource = httpResource<ContentListItem[]>(() =>
+    this.auth.isAuthenticated() ? '/api/v1/content' : undefined
+  );
 
   readonly published = this.publishedResource.value;
   readonly all = this.allResource.value;

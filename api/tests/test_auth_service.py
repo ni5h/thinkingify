@@ -3,7 +3,7 @@ from unittest.mock import patch
 import pytest
 from fastapi import HTTPException
 
-from app.services.auth_service import _resolve_role, google_sign_in
+from app.services.auth_service import DEV_USER_NAME, _resolve_role, dev_login, google_sign_in
 from app.models.user import UserRole
 
 
@@ -73,3 +73,29 @@ async def test_google_sign_in_role_re_resolved_on_repeat_login(db):
             second = await google_sign_in("fake-token", db)
     assert second.user.role == UserRole.admin
     assert second.user.id == first.user.id
+
+
+async def test_dev_login_creates_admin_user_named_nish(db):
+    response = await dev_login(db)
+    assert response.user.name == DEV_USER_NAME
+    assert response.user.role == UserRole.admin
+    assert response.access_token
+
+
+async def test_dev_login_reuses_same_user_on_repeat_call(db):
+    first = await dev_login(db)
+    second = await dev_login(db)
+    assert first.user.id == second.user.id
+
+
+def test_dev_login_route_rejected_when_disabled(client):
+    with patch("app.core.config.settings.allow_dev_login", False):
+        response = client.post("/api/v1/auth/dev-login")
+    assert response.status_code == 403
+
+
+def test_dev_login_route_succeeds_when_enabled(client):
+    with patch("app.core.config.settings.allow_dev_login", True):
+        response = client.post("/api/v1/auth/dev-login")
+    assert response.status_code == 200
+    assert response.json()["user"]["name"] == DEV_USER_NAME

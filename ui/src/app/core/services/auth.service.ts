@@ -75,6 +75,14 @@ export class AuthService {
     this.currentUser.set(this.toAuthUser(tokens.user));
   }
 
+  /** Fixed test identity, bypasses Google sign-in. 403s unless the backend
+   * has ALLOW_DEV_LOGIN=true — see api/app/services/auth_service.py. */
+  async devLogin(): Promise<void> {
+    const tokens = await lastValueFrom(this.http.post<AuthTokens>('/api/v1/auth/dev-login', {}));
+    this.storeTokens(tokens);
+    this.currentUser.set(this.toAuthUser(tokens.user));
+  }
+
   async refreshToken(): Promise<boolean> {
     const storedRefresh = localStorage.getItem(AuthService.REFRESH_TOKEN_KEY);
     if (!storedRefresh) return false;

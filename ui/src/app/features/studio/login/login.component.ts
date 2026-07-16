@@ -20,6 +20,16 @@ import { APP_CONFIG } from '../../../core/config';
       @if (error()) {
         <p class="text-amber text-sm mt-4">{{ error() }}</p>
       }
+
+      <div class="mt-6 pt-6 border-t border-cloud">
+        <button
+          type="button"
+          (click)="handleDevLogin()"
+          class="rounded-xl border border-cloud bg-paper px-5 py-2.5 text-sm font-medium text-ink hover:border-moss hover:bg-cloud/60 transition-colors"
+        >
+          Continue as nish (dev)
+        </button>
+      </div>
     </div>
   `,
 })
@@ -70,6 +80,16 @@ export default class StudioLoginComponent implements AfterViewInit {
       await this.router.navigate(['/studio']);
     } catch {
       this.error.set('Sign in failed — this Google account may not be authorized for Thinkingify Studio.');
+    }
+  }
+
+  async handleDevLogin(): Promise<void> {
+    this.error.set(null);
+    try {
+      await this.authService.devLogin();
+      await this.router.navigate(['/studio']);
+    } catch {
+      this.error.set('Dev login is not enabled on this backend.');
     }
   }
 }

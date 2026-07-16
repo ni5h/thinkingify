@@ -82,6 +82,33 @@ async def google_sign_in(token: str, db: AsyncSession) -> TokenResponse:
     return _issue_tokens(user)
 
 
+DEV_USER_GOOGLE_SUB = "dev-nish"
+DEV_USER_EMAIL = "nish@thinkingify.dev"
+DEV_USER_NAME = "nish"
+
+
+async def dev_login(db: AsyncSession) -> TokenResponse:
+    """Fixed test identity that bypasses Google sign-in and the allow-list
+    entirely. Callers must check settings.allow_dev_login before invoking
+    this — it is not checked here."""
+    result = await db.execute(select(User).where(User.google_sub == DEV_USER_GOOGLE_SUB))
+    user = result.scalar_one_or_none()
+
+    if user is None:
+        user = User(
+            id=uuid.uuid4(),
+            google_sub=DEV_USER_GOOGLE_SUB,
+            email=DEV_USER_EMAIL,
+            name=DEV_USER_NAME,
+            role=UserRole.admin,
+        )
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
+
+    return _issue_tokens(user)
+
+
 async def refresh_access_token(refresh_token: str, db: AsyncSession) -> AccessTokenResponse:
     invalid_exc = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
     try:

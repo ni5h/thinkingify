@@ -9,7 +9,7 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { label: 'Home', path: '/home', icon: 'home' },
+  { label: 'Dashboard', path: '/dashboard', icon: 'home' },
   { label: 'Puzzle', path: '/puzzle', icon: 'puzzle' },
   { label: 'Learn', path: '/learn', icon: 'learn' },
   { label: 'Journal', path: '/journal', icon: 'journal' },
