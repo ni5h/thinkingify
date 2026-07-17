@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { lastValueFrom } from 'rxjs';
 
-export type UserRole = 'admin' | 'author';
+export type UserRole = 'admin' | 'author' | 'learner';
 
 export interface AuthUser {
   id: string;
@@ -101,10 +101,11 @@ export class AuthService {
   }
 
   logout(): void {
+    const wasLearner = this.currentUser()?.role === 'learner';
     localStorage.removeItem(AuthService.ACCESS_TOKEN_KEY);
     localStorage.removeItem(AuthService.REFRESH_TOKEN_KEY);
     this.currentUser.set(null);
-    void this.router.navigate(['/studio/login']);
+    void this.router.navigate([wasLearner ? '/puzzle/login' : '/studio/login']);
   }
 
   getAccessToken(): string | null {

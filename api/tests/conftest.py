@@ -7,6 +7,7 @@ os.environ.setdefault("GOOGLE_CLIENT_ID", "test-client-id")
 os.environ.setdefault("JWT_SECRET", "test-secret")
 os.environ.setdefault("ADMIN_EMAILS", "admin@example.com")
 os.environ.setdefault("AUTHOR_EMAILS", "author@example.com")
+os.environ.setdefault("LEARNER_EMAILS", "learner@example.com")
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -82,6 +83,21 @@ async def author_user(db: AsyncSession) -> User:
         email="author@example.com",
         name="Author",
         role=UserRole.author,
+    )
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
+@pytest.fixture
+async def learner_user(db: AsyncSession) -> User:
+    user = User(
+        id=uuid.uuid4(),
+        google_sub="google-learner",
+        email="learner@example.com",
+        name="Learner",
+        role=UserRole.learner,
     )
     db.add(user)
     await db.commit()

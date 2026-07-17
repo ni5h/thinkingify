@@ -11,6 +11,7 @@ from app.models.base import Base, TimestampMixin
 class UserRole(str, enum.Enum):
     admin = "admin"
     author = "author"
+    learner = "learner"
 
 
 class User(Base, TimestampMixin):

@@ -15,20 +15,22 @@ from app.schemas.user import UserOut
 
 
 def _resolve_role(email: str) -> UserRole:
-    """Reject sign-in outright for any email not on the allow-list.
+    """Reject sign-in outright for any email not on an allow-list.
 
     Unlike an open-signup + manual-promotion flow, no User row is created for
-    an unrecognized email — Thinkingify Studio only ever has Admin/Author
-    accounts, never an anonymous default role.
+    an unrecognized email — accounts only ever land in Admin/Author/Learner,
+    never an anonymous default role.
     """
     normalized = email.lower()
     if normalized in settings.admin_emails_set:
         return UserRole.admin
     if normalized in settings.author_emails_set:
         return UserRole.author
+    if normalized in settings.learner_emails_set:
+        return UserRole.learner
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
-        detail="This email is not authorized for Thinkingify Studio.",
+        detail="This email is not authorized for Thinkingify.",
     )
 
 

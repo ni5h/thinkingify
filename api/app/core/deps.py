@@ -52,3 +52,4 @@ def _role_guard(*roles: UserRole):
 
 require_admin = _role_guard(UserRole.admin)
 require_author_or_admin = _role_guard(UserRole.author, UserRole.admin)
+require_learner_or_admin = _role_guard(UserRole.learner, UserRole.admin)

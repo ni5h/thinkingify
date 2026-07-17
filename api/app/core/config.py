@@ -26,10 +26,11 @@ class Settings(BaseSettings):
 
     supabase_url: str = ""
     supabase_anon_key: str = ""
-    supabase_storage_bucket: str = "thinkingify-studio"
+    supabase_storage_bucket: str = "thinkingify"
 
     admin_emails: str = ""
     author_emails: str = ""
+    learner_emails: str = ""
 
     cors_origins: str = "http://localhost:4200"
 
@@ -40,6 +41,10 @@ class Settings(BaseSettings):
     @property
     def author_emails_set(self) -> set[str]:
         return {e.strip().lower() for e in self.author_emails.split(",") if e.strip()}
+
+    @property
+    def learner_emails_set(self) -> set[str]:
+        return {e.strip().lower() for e in self.learner_emails.split(",") if e.strip()}
 
     @property
     def cors_origins_list(self) -> list[str]:
