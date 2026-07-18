@@ -1,5 +1,61 @@
 # Thinkingify — Claude Code Context
 
+## Rooms IA + Rowling Room v1 (last updated 2026-07-18)
+
+The app is reorganized around **Rooms** — subject/skill areas named after
+iconic figures, per `docs/rowling-room-spec.md` (verbatim planning-notes
+hand-off — read that file for the full origin/philosophy/user-flow spec,
+this section is just the build summary). Locked room names: Writing=Rowling,
+Maths=Ramanujan, Science=Einstein, Puzzle=Sherlock Holmes.
+
+**Shipped this phase — Rowling (Writing) Room, full build:** a new `Topic`
+content type (admin-authored explainer + inline images + one narrated audio
+file, 2-state draft/published lifecycle, no review workflow — see
+`api/app/models/topic.py`), a `Note` model (one evolving per-topic
+scratchpad per learner, autosave-on-blur, `api/app/models/note.py`), and the
+Rowling learner flow: room landing (topic grid) → topic reader (explainer +
+audio + persistent notes side panel) → style chooser (Documentary/Story/
+Fun-casual) → Writing Studio (TipTap editor + the same notes panel visible
+alongside, style-seeded placeholder text only, never generated content) →
+self-publish straight to `/blog/:slug`, no admin gate. Admin authors Topics
+at `/studio/topics*` (mirrors the existing Blog post editor).
+
+**Self-publish permission model:** a learner can `create`/`update`/
+`submit_for_review`/`back_to_draft`/`archive`/`self-publish`/`self-republish`
+their own `Content` rows (new `require_content_actor` guard, ownership
+still enforced via `assert_owner_or_admin`). `publish`/`republish`/`delete`
+stay `require_admin`-only — the existing admin/author review gate for
+Blog content is untouched. `Content` gained nullable `topic_id`/`style`
+columns; a kid's self-published post and Nish's editorial posts appear
+together on the public `/blog` index and Dashboard (same table, no
+separation built).
+
+**Nav is 4 rooms + Dashboard + Progress** (`layout/nav/nav.component.ts`):
+Rowling is new. **Sherlock Holmes is a pure relabel+route-rename of the
+already-built Puzzle/Kakooma module** (`/puzzle*` → `/sherlock*`, matching
+the spec's own namesake table — Puzzle room = Sherlock Holmes) — no content
+changes, same adaptive tier system. **Einstein is a pure relabel+route-rename
+of the still-unbuilt Learn placeholder** (`/learn` → `/einstein`) — still
+just a placeholder, no content. **Ramanujan is a brand-new empty placeholder**
+(`/ramanujan`, Maths room) — matches the other placeholders' pattern exactly.
+Per the spec's own "Puzzle, Maths, Science rooms — naming locked, content/flow
+not yet designed" note, **only Rowling has real content/flow this phase** —
+the other three are naming/nav changes
+only, their actual pedagogy is future work.
+
+**Journal is retired** (module + service + `AppState.journalEntries` field
+removed) — its "write in your own words" purpose is now literally what the
+Rowling Room does. No data migration was needed (nothing real existed in
+it).
+
+**Design-system note:** the "no rich text editor except Blog" rule below is
+broadened — the same TipTap+Markdown machinery now also powers the admin
+Topic editor and the Rowling Writing Studio, all writing into the same
+markdown-round-trip convention Blog established. A new audio-player shared
+component (`shared/components/audio-player/`) is the one genuinely new UI
+primitive this phase introduced, built entirely from existing recipes (see
+Design rules below) — no `tailwind.config.js` changes.
+
 ## Thinkingify Studio v0.1 — Phase 1 (last updated 2026-07-07)
 
 The Blog module has been rebuilt as **Thinkingify Studio**: a real FastAPI +
@@ -275,8 +331,10 @@ class. Used in the sidebar/mobile nav and on each placeholder page's
 - No AI chat.
 - No mascot or character — personality comes from color, shape, and icons.
 - No loading spinners, no infinite scroll. No rich text editor — **except**
-  the Blog create/edit page, which is a documented, explicit exception (see
-  Blog module specifics above).
+  content authored through the shared Content/Topic markdown model (Blog
+  post editor, admin Topic editor, Rowling Writing Studio), which is a
+  documented, explicit exception (see Blog module specifics above and Rooms
+  IA above).
 
 ## V1 → V2 migration note
 `StorageService` is the only intended swap point. In V2 it would call a FastAPI

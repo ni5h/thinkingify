@@ -53,3 +53,8 @@ def _role_guard(*roles: UserRole):
 require_admin = _role_guard(UserRole.admin)
 require_author_or_admin = _role_guard(UserRole.author, UserRole.admin)
 require_learner_or_admin = _role_guard(UserRole.learner, UserRole.admin)
+# Any role that can own Content (author's Blog posts, learner's Rowling
+# Room posts). Ownership is still enforced per-call via
+# assert_owner_or_admin/_get_owned_or_404 — this only widens *who can act
+# on content at all*, not which rows they can touch.
+require_content_actor = _role_guard(UserRole.author, UserRole.learner, UserRole.admin)

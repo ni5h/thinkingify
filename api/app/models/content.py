@@ -2,7 +2,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Enum, ForeignKey, String, Text
+from sqlalchemy import DateTime, Enum, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -29,5 +29,19 @@ class Content(Base, TimestampMixin):
         Enum(ContentStatus, name="contentstatus"), nullable=False, default=ContentStatus.draft
     )
     author_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    published_at: Mapped[datetime | None] = mapped_column(nullable=True)
-    deleted_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    # Explicit DateTime(timezone=True): without it SQLAlchemy infers a bare
+    # DateTime() from the `datetime` annotation, which Postgres creates as
+    # TIMESTAMP WITHOUT TIME ZONE — then a tz-aware Python datetime.now(UTC)
+    # write blows up with "can't subtract offset-naive and offset-aware
+    # datetimes". Only ever surfaced against a real Postgres; the SQLite
+    # in-memory test DB doesn't distinguish tz-aware/naive so this was
+    # latent until the first real publish against Postgres.
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Rowling Room fields. topic_id IS NOT NULL is the discriminator for
+    # "this post came out of a Topic reader"; style is a plain string (not
+    # a Postgres enum) so a 4th writing style never needs an ALTER TYPE —
+    # same precedent as PuzzleGameProgress.game_id. Validity is enforced by
+    # a Literal[...] on the Pydantic schema instead.
+    topic_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("topics.id"), nullable=True)
+    style: Mapped[str | None] = mapped_column(String(50), nullable=True)

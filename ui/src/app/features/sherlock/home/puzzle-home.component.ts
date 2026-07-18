@@ -6,12 +6,12 @@ import { RouterLink } from '@angular/router';
   standalone: true,
   imports: [RouterLink],
   template: `
-    <h1 class="font-display text-3xl">Puzzles</h1>
+    <h1 class="font-display text-3xl">Sherlock Holmes</h1>
     <p class="text-muted mt-2">Pick a game to play.</p>
 
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-8">
       <a
-        routerLink="/puzzle/kakooma"
+        routerLink="/sherlock/kakooma"
         class="rounded-2xl border border-cloud bg-white shadow-sm p-5 hover:shadow-md transition-shadow"
       >
         <h2 class="font-display text-lg text-ink">Kakooma</h2>

@@ -105,7 +105,7 @@ export class AuthService {
     localStorage.removeItem(AuthService.ACCESS_TOKEN_KEY);
     localStorage.removeItem(AuthService.REFRESH_TOKEN_KEY);
     this.currentUser.set(null);
-    void this.router.navigate([wasLearner ? '/puzzle/login' : '/studio/login']);
+    void this.router.navigate([wasLearner ? '/sherlock/login' : '/studio/login']);
   }
 
   getAccessToken(): string | null {

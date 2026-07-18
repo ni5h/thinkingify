@@ -8,7 +8,7 @@ import { APP_CONFIG } from '../../../core/config';
   standalone: true,
   template: `
     <div class="mx-auto mt-16 max-w-sm rounded-2xl border border-cloud bg-white shadow-sm p-8 text-center">
-      <h1 class="font-display text-2xl text-ink">Thinkingify Puzzles</h1>
+      <h1 class="font-display text-2xl text-ink">Sherlock Holmes</h1>
       <p class="text-muted text-sm mt-2">Sign in to play your puzzles and save your progress.</p>
 
       <div class="mt-6 flex justify-center" #googleBtn></div>
@@ -77,7 +77,7 @@ export default class PuzzleLoginComponent implements AfterViewInit {
     this.error.set(null);
     try {
       await this.authService.handleGoogleCredential(idToken);
-      await this.router.navigate(['/puzzle']);
+      await this.router.navigate(['/sherlock']);
     } catch {
       this.error.set('Sign in failed — this Google account may not be authorized.');
     }
@@ -87,7 +87,7 @@ export default class PuzzleLoginComponent implements AfterViewInit {
     this.error.set(null);
     try {
       await this.authService.devLogin();
-      await this.router.navigate(['/puzzle']);
+      await this.router.navigate(['/sherlock']);
     } catch {
       this.error.set('Dev login is not enabled on this backend.');
     }

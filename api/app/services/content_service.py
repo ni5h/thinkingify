@@ -19,6 +19,12 @@ _TRANSITIONS: dict[str, tuple[ContentStatus, ContentStatus]] = {
     "publish": (ContentStatus.pending_review, ContentStatus.published),
     "archive": (ContentStatus.published, ContentStatus.archived),
     "republish": (ContentStatus.archived, ContentStatus.published),
+    # Learner self-publish path: draft straight to published, no admin
+    # review step. Kept as distinct transitions (rather than reusing
+    # "publish"/"republish") so the admin-only publish endpoints stay
+    # untouched — see require_content_actor vs. require_admin in deps.py.
+    "self_publish": (ContentStatus.draft, ContentStatus.published),
+    "self_republish": (ContentStatus.archived, ContentStatus.published),
 }
 _DELETABLE_STATUSES = {ContentStatus.draft, ContentStatus.archived}
 
@@ -45,6 +51,8 @@ async def create(db: AsyncSession, author: User, data: ContentCreate) -> Content
         content_markdown=data.content_markdown,
         status=ContentStatus.draft,
         author_id=author.id,
+        topic_id=data.topic_id,
+        style=data.style,
     )
     db.add(content)
     await db.commit()
@@ -69,7 +77,7 @@ async def transition(db: AsyncSession, content: Content, action: str) -> Content
             detail=f"Cannot {action.replace('_', ' ')} from status '{content.status.value}'.",
         )
     content.status = to_status
-    if action == "publish" and content.published_at is None:
+    if action in ("publish", "self_publish") and content.published_at is None:
         content.published_at = datetime.now(UTC)
     await db.commit()
     await db.refresh(content)

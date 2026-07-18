@@ -1,15 +1,20 @@
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
 from app.models.content import ContentStatus
+
+WritingStyle = Literal["documentary", "story", "fun_casual"]
 
 
 class ContentCreate(BaseModel):
     title: str
     summary: str | None = None
     content_markdown: str = ""
+    topic_id: uuid.UUID | None = None
+    style: WritingStyle | None = None
 
 
 class ContentUpdate(BaseModel):
@@ -17,6 +22,8 @@ class ContentUpdate(BaseModel):
     summary: str | None = None
     content_markdown: str | None = None
     feature_image_url: str | None = None
+    topic_id: uuid.UUID | None = None
+    style: WritingStyle | None = None
 
 
 class ContentOut(BaseModel):
@@ -30,6 +37,8 @@ class ContentOut(BaseModel):
     feature_image_url: str | None
     status: ContentStatus
     author_id: uuid.UUID
+    topic_id: uuid.UUID | None
+    style: WritingStyle | None
     published_at: datetime | None
     created_at: datetime
     updated_at: datetime
@@ -44,5 +53,7 @@ class ContentListItem(BaseModel):
     summary: str | None
     feature_image_url: str | None
     status: ContentStatus
+    topic_id: uuid.UUID | None
+    style: WritingStyle | None
     published_at: datetime | None
     updated_at: datetime

@@ -77,6 +77,14 @@ export class BlogService {
     await this.transition(id, 'republish');
   }
 
+  async selfPublish(id: string): Promise<void> {
+    await this.transition(id, 'self-publish');
+  }
+
+  async selfRepublish(id: string): Promise<void> {
+    await this.transition(id, 'self-republish');
+  }
+
   async delete(id: string): Promise<void> {
     await firstValueFrom(this.http.delete<void>(`/api/v1/content/${id}`));
     this.reloadAll();
