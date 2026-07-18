@@ -35,10 +35,13 @@ jobs:
 
       - name: Build
         working-directory: ui
-        run: npx ng build --configuration production --base-href /thinkingify/
+        run: npx ng build --configuration production --base-href /
 
       - name: Add SPA fallback (404 -> index.html, for client-side routing)
         run: cp ui/dist/thinkingify-ui/browser/index.html ui/dist/thinkingify-ui/browser/404.html
+
+      - name: Add CNAME for custom domain
+        run: echo "thinkingify.com" > ui/dist/thinkingify-ui/browser/CNAME
 
       - uses: actions/upload-pages-artifact@v3
         with:
