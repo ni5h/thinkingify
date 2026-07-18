@@ -35,4 +35,4 @@ services:
       - key: LEARNER_EMAILS
         sync: false
       - key: CORS_ORIGINS
-        value: https://ni5h.github.io
+        value: https://thinkingify.com

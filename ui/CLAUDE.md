@@ -1,5 +1,21 @@
 # Thinkingify — Claude Code Context
 
+## Custom domain (last updated 2026-07-18)
+
+Moved off the GitHub Pages project-page URL to a custom domain (bought on
+Namecheap): frontend is now served at `https://thinkingify.com` (was
+`https://ni5h.github.io/thinkingify/`), backend at
+`https://api.thinkingify.com` (CNAME to the existing Render service,
+`thinkingify-api-nbvc.onrender.com`, which still works directly too).
+`deploy-ui.yml` now builds with `--base-href /` (was `/thinkingify/`) and
+writes a `CNAME` file into the Pages artifact (required for GitHub
+Actions-based Pages deploys — the Settings → Pages custom-domain field alone
+isn't enough). `environment.prod.ts`'s `apiBaseUrl` and `render.yaml`'s
+`CORS_ORIGINS` both point at the new domains. The Google OAuth client's
+Authorized JavaScript origins need `https://thinkingify.com` added
+separately in Google Cloud Console (manual step, not something in this
+repo) — this was mid-flight when the domain migration started.
+
 ## Rooms IA + Rowling Room v1 (last updated 2026-07-18)
 
 The app is reorganized around **Rooms** — subject/skill areas named after
