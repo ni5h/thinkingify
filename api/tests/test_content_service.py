@@ -37,6 +37,8 @@ async def test_slug_collision_gets_numeric_suffix(db, author_user):
         ("publish", ContentStatus.pending_review),
         ("archive", ContentStatus.published),
         ("republish", ContentStatus.archived),
+        ("self_publish", ContentStatus.draft),
+        ("self_republish", ContentStatus.archived),
     ],
 )
 async def test_legal_transition_succeeds(db, author_user, action, from_status):
@@ -58,6 +60,8 @@ async def test_legal_transition_succeeds(db, author_user, action, from_status):
         ("publish", ContentStatus.archived),
         ("archive", ContentStatus.draft),
         ("republish", ContentStatus.published),
+        ("self_publish", ContentStatus.published),
+        ("self_republish", ContentStatus.draft),
     ],
 )
 async def test_illegal_transition_raises_409(db, author_user, action, illegal_from_status):
@@ -152,3 +156,82 @@ async def test_assert_owner_or_admin(db, author_user, admin_user):
     with pytest.raises(HTTPException) as exc_info:
         content_service.assert_owner_or_admin(post, other_author)
     assert exc_info.value.status_code == 403
+
+
+async def test_self_publish_sets_published_at_and_topic_style_round_trip(db, learner_user):
+    topic_id = uuid.uuid4()
+    post = await content_service.create(
+        db,
+        learner_user,
+        ContentCreate(title="My Take", content_markdown="body", topic_id=topic_id, style="documentary"),
+    )
+    assert post.topic_id == topic_id
+    assert post.style == "documentary"
+
+    published = await content_service.transition(db, post, "self_publish")
+    assert published.status == ContentStatus.published
+    assert published.published_at is not None
+
+
+def _token_for(user, role: str) -> str:
+    from app.core.security import create_access_token
+
+    return create_access_token(str(user.id), email=user.email, name=user.name, role=role)
+
+
+def test_self_publish_endpoint_rejects_author_role(client, author_user):
+    token = _token_for(author_user, "author")
+    create_resp = client.post(
+        "/api/v1/content", json={"title": "Draft", "content_markdown": ""}, headers={"Authorization": f"Bearer {token}"}
+    )
+    content_id = create_resp.json()["id"]
+
+    response = client.post(f"/api/v1/content/{content_id}/self-publish", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 403
+
+
+def test_self_publish_endpoint_accepts_learner_role_on_own_post(client, learner_user):
+    token = _token_for(learner_user, "learner")
+    create_resp = client.post(
+        "/api/v1/content", json={"title": "My Draft", "content_markdown": ""}, headers={"Authorization": f"Bearer {token}"}
+    )
+    content_id = create_resp.json()["id"]
+
+    response = client.post(f"/api/v1/content/{content_id}/self-publish", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 200
+    assert response.json()["status"] == "published"
+
+
+async def test_self_publish_endpoint_rejects_non_owner_learner(client, db, learner_user):
+    owner_token = _token_for(learner_user, "learner")
+    create_resp = client.post(
+        "/api/v1/content",
+        json={"title": "Owner's Draft", "content_markdown": ""},
+        headers={"Authorization": f"Bearer {owner_token}"},
+    )
+    content_id = create_resp.json()["id"]
+
+    other = User(
+        id=uuid.uuid4(),
+        google_sub="other-learner",
+        email="other-learner@example.com",
+        name="Other",
+        role=UserRole.learner,
+    )
+    db.add(other)
+    await db.commit()
+    other_token = _token_for(other, "learner")
+
+    response = client.post(f"/api/v1/content/{content_id}/self-publish", headers={"Authorization": f"Bearer {other_token}"})
+    assert response.status_code == 403
+
+
+def test_publish_endpoint_still_admin_only(client, learner_user):
+    token = _token_for(learner_user, "learner")
+    create_resp = client.post(
+        "/api/v1/content", json={"title": "Draft", "content_markdown": ""}, headers={"Authorization": f"Bearer {token}"}
+    )
+    content_id = create_resp.json()["id"]
+
+    response = client.post(f"/api/v1/content/{content_id}/publish", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 403

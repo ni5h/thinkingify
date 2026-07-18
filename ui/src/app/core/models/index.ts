@@ -20,18 +20,6 @@ export interface Lesson {
   source?: string;
 }
 
-export interface JournalEntry {
-  id: string;
-  date: string; // ISO date string YYYY-MM-DD
-  title: string;
-  whatILearned: string;
-  whyIThinkItsTrue: string;
-  myOwnExample: string;
-  questionsIHave: string;
-  whatIllTryTomorrow: string;
-  linkedLessonId?: string;
-}
-
 export interface Profile {
   name: string; // '' = unset
   tagline: string; // '' = unset, e.g. "one curious eight-year-old"
@@ -41,7 +29,6 @@ export interface ProgressStats {
   articlesWritten: number;
   puzzlesSolvedCount: number;
   lessonsCompletedCount: number;
-  questionsAsked: number;
   currentStreak: number;
   longestStreak: number;
   totalDaysLearned: number;
@@ -59,7 +46,6 @@ export interface ProgressStats {
  */
 export interface AppState {
   version: number;
-  journalEntries: JournalEntry[];
   solvedPuzzleIds: string[];
   completedLessonIds: string[];
   /** Distinct YYYY-MM-DD entries, one per day with any qualifying activity. */
@@ -67,16 +53,15 @@ export interface AppState {
   profile: Profile;
 }
 
-// Bumped 1 -> 2 for the new `profile` field. StorageService.migrate() only
-// backfills createEmptyAppState() defaults when the stored version is
-// strictly less than this constant — without the bump, existing saved
-// state at version 1 would load with `profile: undefined` and crash.
-export const APP_STATE_VERSION = 2;
+// Bumped 2 -> 3 for the removal of `journalEntries` (retired — the Rowling
+// Room's Notes + self-publish flow replaces its "write in your own words"
+// purpose; no real data existed worth migrating). Only additive fields need
+// a StorageService.migrate() backfill; removing a field does not.
+export const APP_STATE_VERSION = 3;
 
 export function createEmptyAppState(): AppState {
   return {
     version: APP_STATE_VERSION,
-    journalEntries: [],
     solvedPuzzleIds: [],
     completedLessonIds: [],
     activityDates: [],

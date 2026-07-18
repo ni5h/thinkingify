@@ -1,5 +1,6 @@
 import { Injectable, computed, inject } from '@angular/core';
 import { StorageService } from './storage.service';
+import { BlogService } from './blog.service';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -44,29 +45,31 @@ function currentRun(sortedDates: string[]): number {
 
 /**
  * Exposes all progress/stat signals. Nothing here is persisted directly —
- * every value is computed() from the raw activity recorded in StorageService
- * (journalEntries, solvedPuzzleIds, completedLessonIds, activityDates).
+ * every value is computed() from raw activity in StorageService
+ * (solvedPuzzleIds, completedLessonIds, activityDates) or, for
+ * articlesWritten, from BlogService's Content resource.
  */
 @Injectable({ providedIn: 'root' })
 export class ProgressService {
   private readonly storage = inject(StorageService);
+  private readonly blog = inject(BlogService);
 
   private readonly sortedActivityDates = computed(() =>
     [...this.storage.state().activityDates].sort()
   );
 
-  readonly articlesWritten = computed(() => this.storage.state().journalEntries.length);
+  // Counts published Content rows from BlogService's `all` resource, which
+  // the backend already scopes to the current user's own posts for non-admin
+  // roles (see content_service.list_all) — Rowling Room posts included.
+  // Repurposed from a localStorage-only journalEntries count now that
+  // Journal is retired (see ui/CLAUDE.md's Rooms IA section).
+  readonly articlesWritten = computed(
+    () => (this.blog.all() ?? []).filter((p) => p.status === 'published').length
+  );
 
   readonly puzzlesSolvedCount = computed(() => this.storage.state().solvedPuzzleIds.length);
 
   readonly lessonsCompletedCount = computed(() => this.storage.state().completedLessonIds.length);
-
-  readonly questionsAsked = computed(
-    () =>
-      this.storage
-        .state()
-        .journalEntries.filter((entry) => entry.questionsIHave.trim().length > 0).length
-  );
 
   readonly currentStreak = computed(() => currentRun(this.sortedActivityDates()));
 

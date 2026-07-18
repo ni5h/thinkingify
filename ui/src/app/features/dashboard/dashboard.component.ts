@@ -2,7 +2,6 @@ import { Component, computed, inject } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { BlogService } from '../../core/services/blog.service';
-import { JournalService } from '../../core/services/journal.service';
 import { ProgressService } from '../../core/services/progress.service';
 import { ProfileService } from '../../core/services/profile.service';
 
@@ -42,37 +41,10 @@ import { ProfileService } from '../../core/services/profile.service';
         View all posts &rarr;
       </a>
     </section>
-
-    <hr class="border-cloud mt-10" />
-
-    <section class="mt-10">
-      <h2 class="font-display text-xl">Journal</h2>
-
-      @if (journalCount() === 0) {
-        <p class="text-muted mt-4">No entries yet.</p>
-      } @else {
-        <div class="rounded-2xl border border-cloud bg-white shadow-sm p-5 mt-4 inline-block">
-          <p class="text-xs text-muted font-mono">Entries written</p>
-          <p class="font-display text-3xl text-ink mt-1">{{ journalCount() }}</p>
-        </div>
-
-        @if (recentEntry(); as entry) {
-          <p class="text-sm text-muted mt-6">
-            Most recent: <span class="text-ink font-medium">"{{ entry.title || '(untitled)' }}"</span>
-            <span class="font-mono ml-1">{{ entry.date | date: 'mediumDate' }}</span>
-          </p>
-        }
-      }
-
-      <a routerLink="/journal" class="inline-block mt-4 rounded-xl px-3 py-2 text-sm font-medium text-muted hover:bg-cloud/60 hover:text-ink transition-colors">
-        Write today's entry &rarr;
-      </a>
-    </section>
   `,
 })
 export default class DashboardComponent {
   private readonly blog = inject(BlogService);
-  private readonly journal = inject(JournalService);
   private readonly progress = inject(ProgressService);
   private readonly profileService = inject(ProfileService);
 
@@ -82,7 +54,4 @@ export default class DashboardComponent {
   private readonly publishedPosts = computed(() => this.blog.published() ?? []);
   readonly publishedCount = computed(() => this.publishedPosts().length);
   readonly recentPosts = computed(() => this.publishedPosts().slice(0, 3));
-
-  readonly journalCount = computed(() => this.journal.entries().length);
-  readonly recentEntry = computed(() => this.journal.entries()[0]);
 }

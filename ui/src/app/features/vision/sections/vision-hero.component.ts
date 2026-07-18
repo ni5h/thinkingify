@@ -27,7 +27,7 @@ import { ProfileService } from '../../../core/services/profile.service';
       <a routerLink="/profile" class="text-xs text-muted hover:text-ink transition-colors">edit</a>
 
       <div class="mt-10">
-        <a routerLink="/journal" class="group inline-flex items-center gap-2 text-base font-medium text-moss">
+        <a routerLink="/rowling" class="group inline-flex items-center gap-2 text-base font-medium text-moss">
           <span class="border-b border-moss/40 group-hover:border-moss pb-0.5 transition-colors">Start Thinking</span>
           <app-icon name="arrow-right" [size]="16" class="transition-transform group-hover:translate-x-0.5" />
         </a>

@@ -4,11 +4,13 @@ export type IconName =
   | 'home'
   | 'puzzle'
   | 'learn'
-  | 'journal'
-  | 'blog'
+  | 'rowling'
+  | 'sherlock'
   | 'progress'
   | 'menu'
-  | 'arrow-right';
+  | 'arrow-right'
+  | 'play'
+  | 'pause';
 
 @Component({
   selector: 'app-icon',
@@ -32,16 +34,16 @@ export type IconName =
           <path d="M12 6.5v12" />
         </svg>
       }
-      @case ('journal') {
-        <svg [attr.width]="size" [attr.height]="size" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="5" y="3.5" width="14" height="17" rx="1.5" />
-          <path d="M9 8h6M9 12h6M9 16h4" />
-        </svg>
-      }
-      @case ('blog') {
+      @case ('rowling') {
         <svg [attr.width]="size" [attr.height]="size" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
           <path d="M14.5 4.5 19 9l-9 9-5 1 1-5 8.5-9.5Z" />
           <path d="M13 6l4 4" />
+        </svg>
+      }
+      @case ('sherlock') {
+        <svg [attr.width]="size" [attr.height]="size" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="10.5" cy="10.5" r="6" />
+          <path d="M15 15l5.5 5.5" />
         </svg>
       }
       @case ('progress') {
@@ -58,6 +60,17 @@ export type IconName =
       @case ('arrow-right') {
         <svg [attr.width]="size" [attr.height]="size" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
           <path d="M4 12h16M13 5l7 7-7 7" />
+        </svg>
+      }
+      @case ('play') {
+        <svg [attr.width]="size" [attr.height]="size" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+          <path d="M7 5v14l12-7Z" />
+        </svg>
+      }
+      @case ('pause') {
+        <svg [attr.width]="size" [attr.height]="size" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+          <rect x="6" y="5" width="4" height="14" rx="1" />
+          <rect x="14" y="5" width="4" height="14" rx="1" />
         </svg>
       }
     }

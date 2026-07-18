@@ -15,7 +15,7 @@ import { RevealOnScrollDirective } from '../../../shared/directives/reveal-on-sc
       </p>
 
       <div class="flex flex-col sm:flex-row gap-4 sm:items-center mt-8">
-        <a routerLink="/journal" class="rounded-xl bg-moss px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-moss-dark transition-colors">
+        <a routerLink="/rowling" class="rounded-xl bg-moss px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-moss-dark transition-colors">
           Begin your first page
         </a>
         <a routerLink="/blog" class="rounded-xl px-3 py-2 text-sm font-medium text-muted hover:bg-cloud/60 hover:text-ink transition-colors">

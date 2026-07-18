@@ -10,10 +10,10 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', path: '/dashboard', icon: 'home' },
-  { label: 'Puzzle', path: '/puzzle', icon: 'puzzle' },
-  { label: 'Learn', path: '/learn', icon: 'learn' },
-  { label: 'Journal', path: '/journal', icon: 'journal' },
-  { label: 'Blog', path: '/blog', icon: 'blog' },
+  { label: 'Rowling', path: '/rowling', icon: 'rowling' },
+  { label: 'Ramanujan', path: '/ramanujan', icon: 'puzzle' },
+  { label: 'Einstein', path: '/einstein', icon: 'learn' },
+  { label: 'Sherlock Holmes', path: '/sherlock', icon: 'sherlock' },
   { label: 'Progress', path: '/progress', icon: 'progress' },
 ];
 

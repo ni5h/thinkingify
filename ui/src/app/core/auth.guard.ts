@@ -35,11 +35,11 @@ function roleGuard(loginPath: string, ...roles: UserRole[]): CanActivateFn {
 }
 
 export const requireStudioRole = roleGuard('/studio/login', 'admin', 'author');
-export const requireLearnerRole = roleGuard('/puzzle/login', 'admin', 'learner');
+export const requireLearnerRole = roleGuard('/sherlock/login', 'admin', 'learner');
 
 export const noPuzzleAuthGuard: CanActivateFn = () => {
   const authService = inject(AuthService);
   const router = inject(Router);
 
-  return authService.isAuthenticated() ? router.createUrlTree(['/puzzle']) : true;
+  return authService.isAuthenticated() ? router.createUrlTree(['/sherlock']) : true;
 };
