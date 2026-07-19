@@ -14,26 +14,6 @@ from app.schemas.auth import AccessTokenResponse, TokenResponse
 from app.schemas.user import UserOut
 
 
-def _resolve_role(email: str) -> UserRole:
-    """Reject sign-in outright for any email not on an allow-list.
-
-    Unlike an open-signup + manual-promotion flow, no User row is created for
-    an unrecognized email — accounts only ever land in Admin/Author/Learner,
-    never an anonymous default role.
-    """
-    normalized = email.lower()
-    if normalized in settings.admin_emails_set:
-        return UserRole.admin
-    if normalized in settings.author_emails_set:
-        return UserRole.author
-    if normalized in settings.learner_emails_set:
-        return UserRole.learner
-    raise HTTPException(
-        status_code=status.HTTP_403_FORBIDDEN,
-        detail="This email is not authorized for Thinkingify.",
-    )
-
-
 def _issue_tokens(user: User) -> TokenResponse:
     access_token = create_access_token(
         str(user.id), email=user.email, name=user.name, role=user.role.value
@@ -55,11 +35,11 @@ async def google_sign_in(token: str, db: AsyncSession) -> TokenResponse:
     name: str = info.get("name", email)
     avatar_url: str | None = info.get("picture")
 
-    # Role is re-resolved on every login (not just at creation) so that
-    # editing ADMIN_EMAILS/AUTHOR_EMAILS takes effect immediately without a
-    # manual promotion step.
-    role = _resolve_role(email)
-
+    # Open sign-up: any Google account gets a User row. `role` is a fixed
+    # default here — nothing reads it for authorization anymore (see
+    # api/app/core/deps.py), it only exists because the DB column is
+    # NOT NULL. Real access control is ownership-based (see content_service
+    # .assert_owner / topic_service.assert_owner), not role-based.
     result = await db.execute(select(User).where(User.google_sub == google_sub))
     user = result.scalar_one_or_none()
 
@@ -70,13 +50,12 @@ async def google_sign_in(token: str, db: AsyncSession) -> TokenResponse:
             email=email,
             name=name,
             avatar_url=avatar_url,
-            role=role,
+            role=UserRole.learner,
         )
         db.add(user)
     else:
         user.name = name
         user.avatar_url = avatar_url
-        user.role = role
 
     await db.commit()
     await db.refresh(user)
@@ -90,9 +69,9 @@ DEV_USER_NAME = "nish"
 
 
 async def dev_login(db: AsyncSession) -> TokenResponse:
-    """Fixed test identity that bypasses Google sign-in and the allow-list
-    entirely. Callers must check settings.allow_dev_login before invoking
-    this — it is not checked here."""
+    """Fixed test identity that bypasses Google sign-in entirely. Callers
+    must check settings.allow_dev_login before invoking this — it is not
+    checked here."""
     result = await db.execute(select(User).where(User.google_sub == DEV_USER_GOOGLE_SUB))
     user = result.scalar_one_or_none()
 
@@ -102,7 +81,7 @@ async def dev_login(db: AsyncSession) -> TokenResponse:
             google_sub=DEV_USER_GOOGLE_SUB,
             email=DEV_USER_EMAIL,
             name=DEV_USER_NAME,
-            role=UserRole.admin,
+            role=UserRole.learner,
         )
         db.add(user)
         await db.commit()

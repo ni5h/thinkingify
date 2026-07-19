@@ -14,8 +14,11 @@ export class TopicService {
   private readonly auth = inject(AuthService);
 
   readonly publishedResource = httpResource<TopicListItem[]>(() => '/api/v1/topics/published');
+  // Gated on auth state, not role — the /studio/topics list is open to any
+  // authenticated user now (shared visibility), only mutating a topic is
+  // ownership-checked server-side. See ui/CLAUDE.md's Rooms IA section.
   readonly allResource = httpResource<TopicListItem[]>(() =>
-    this.auth.currentUser()?.role === 'admin' ? '/api/v1/topics' : undefined
+    this.auth.isAuthenticated() ? '/api/v1/topics' : undefined
   );
 
   readonly published = this.publishedResource.value;

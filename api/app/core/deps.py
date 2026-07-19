@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.security import decode_token
-from app.models.user import User, UserRole
+from app.models.user import User
 
 bearer_scheme = HTTPBearer()
 
@@ -39,22 +39,3 @@ async def get_current_user(
     if user is None:
         raise credentials_exception
     return user
-
-
-def _role_guard(*roles: UserRole):
-    async def guard(current_user: Annotated[User, Depends(get_current_user)]) -> User:
-        if current_user.role not in roles:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
-        return current_user
-
-    return guard
-
-
-require_admin = _role_guard(UserRole.admin)
-require_author_or_admin = _role_guard(UserRole.author, UserRole.admin)
-require_learner_or_admin = _role_guard(UserRole.learner, UserRole.admin)
-# Any role that can own Content (author's Blog posts, learner's Rowling
-# Room posts). Ownership is still enforced per-call via
-# assert_owner_or_admin/_get_owned_or_404 — this only widens *who can act
-# on content at all*, not which rows they can touch.
-require_content_actor = _role_guard(UserRole.author, UserRole.learner, UserRole.admin)

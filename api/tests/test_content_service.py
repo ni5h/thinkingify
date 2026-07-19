@@ -129,7 +129,7 @@ async def test_soft_deleted_post_excluded_from_published_list(db, author_user):
     assert not any(p.id == post.id for p in await content_service.list_published(db))
 
 
-async def test_author_sees_only_own_posts_admin_sees_all(db, author_user, admin_user):
+async def test_each_user_sees_only_own_posts(db, author_user, admin_user):
     await _make_post(db, author_user, "Author Post")
     await _make_post(db, admin_user, "Admin Post")
 
@@ -137,14 +137,20 @@ async def test_author_sees_only_own_posts_admin_sees_all(db, author_user, admin_
     admin_titles = {p.title for p in await content_service.list_all(db, admin_user)}
 
     assert author_titles == {"Author Post"}
-    assert admin_titles == {"Author Post", "Admin Post"}
+    assert admin_titles == {"Admin Post"}
 
 
-async def test_assert_owner_or_admin(db, author_user, admin_user):
+async def test_assert_owner(db, author_user, admin_user):
     post = await _make_post(db, author_user)
 
-    content_service.assert_owner_or_admin(post, author_user)  # no raise
-    content_service.assert_owner_or_admin(post, admin_user)  # no raise
+    content_service.assert_owner(post, author_user)  # no raise
+
+    # No admin bypass — every user, including one whose row happens to
+    # still have role=admin from before roles were removed, is rejected
+    # for someone else's content.
+    with pytest.raises(HTTPException) as exc_info:
+        content_service.assert_owner(post, admin_user)
+    assert exc_info.value.status_code == 403
 
     other_author = User(
         id=uuid.uuid4(),
@@ -154,7 +160,7 @@ async def test_assert_owner_or_admin(db, author_user, admin_user):
         role=UserRole.author,
     )
     with pytest.raises(HTTPException) as exc_info:
-        content_service.assert_owner_or_admin(post, other_author)
+        content_service.assert_owner(post, other_author)
     assert exc_info.value.status_code == 403
 
 
@@ -179,7 +185,10 @@ def _token_for(user, role: str) -> str:
     return create_access_token(str(user.id), email=user.email, name=user.name, role=role)
 
 
-def test_self_publish_endpoint_rejects_author_role(client, author_user):
+def test_self_publish_endpoint_works_for_any_authenticated_user_on_own_post(client, author_user):
+    """No more role gate on self-publish — an 'author'-labeled user (the
+    label is vestigial now) can self-publish their own draft same as
+    anyone else, since the endpoint only checks authentication + ownership."""
     token = _token_for(author_user, "author")
     create_resp = client.post(
         "/api/v1/content", json={"title": "Draft", "content_markdown": ""}, headers={"Authorization": f"Bearer {token}"}
@@ -187,7 +196,8 @@ def test_self_publish_endpoint_rejects_author_role(client, author_user):
     content_id = create_resp.json()["id"]
 
     response = client.post(f"/api/v1/content/{content_id}/self-publish", headers={"Authorization": f"Bearer {token}"})
-    assert response.status_code == 403
+    assert response.status_code == 200
+    assert response.json()["status"] == "published"
 
 
 def test_self_publish_endpoint_accepts_learner_role_on_own_post(client, learner_user):
@@ -226,12 +236,40 @@ async def test_self_publish_endpoint_rejects_non_owner_learner(client, db, learn
     assert response.status_code == 403
 
 
-def test_publish_endpoint_still_admin_only(client, learner_user):
+def test_publish_endpoint_works_for_owner(client, db, learner_user):
+    """/publish is no longer admin-only — any authenticated user can
+    publish their own pending_review content directly, same as any other
+    content action. Ownership is still required (see next test)."""
     token = _token_for(learner_user, "learner")
     create_resp = client.post(
         "/api/v1/content", json={"title": "Draft", "content_markdown": ""}, headers={"Authorization": f"Bearer {token}"}
     )
     content_id = create_resp.json()["id"]
+    client.post(f"/api/v1/content/{content_id}/submit-for-review", headers={"Authorization": f"Bearer {token}"})
 
     response = client.post(f"/api/v1/content/{content_id}/publish", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 200
+    assert response.json()["status"] == "published"
+
+
+async def test_publish_endpoint_rejects_non_owner(client, db, learner_user):
+    token = _token_for(learner_user, "learner")
+    create_resp = client.post(
+        "/api/v1/content", json={"title": "Draft", "content_markdown": ""}, headers={"Authorization": f"Bearer {token}"}
+    )
+    content_id = create_resp.json()["id"]
+    client.post(f"/api/v1/content/{content_id}/submit-for-review", headers={"Authorization": f"Bearer {token}"})
+
+    other = User(
+        id=uuid.uuid4(),
+        google_sub="other-publish",
+        email="other-publish@example.com",
+        name="Other",
+        role=UserRole.learner,
+    )
+    db.add(other)
+    await db.commit()
+    other_token = _token_for(other, "learner")
+
+    response = client.post(f"/api/v1/content/{content_id}/publish", headers={"Authorization": f"Bearer {other_token}"})
     assert response.status_code == 403

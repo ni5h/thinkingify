@@ -2,7 +2,6 @@ import { Component, inject } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { BlogService } from '../../../core/services/blog.service';
-import { AuthService } from '../../../core/services/auth.service';
 import { ContentStatus } from '../../../core/models/content';
 
 const STATUS_LABELS: Record<ContentStatus, string> = {
@@ -55,11 +54,9 @@ const STATUS_LABELS: Record<ContentStatus, string> = {
               }
 
               @if (post.status === 'pending_review') {
-                @if (isAdmin()) {
-                  <button type="button" (click)="publish(post.id)" class="rounded-lg bg-moss/10 px-3 py-1.5 text-sm font-medium text-moss-dark hover:bg-moss/20 transition-colors">
-                    Publish
-                  </button>
-                }
+                <button type="button" (click)="publish(post.id)" class="rounded-lg bg-moss/10 px-3 py-1.5 text-sm font-medium text-moss-dark hover:bg-moss/20 transition-colors">
+                  Publish
+                </button>
                 <button type="button" (click)="backToDraft(post.id)" class="rounded-lg px-3 py-1.5 text-sm font-medium text-muted hover:bg-cloud/60 hover:text-ink transition-colors">
                   Back to draft
                 </button>
@@ -75,14 +72,12 @@ const STATUS_LABELS: Record<ContentStatus, string> = {
               }
 
               @if (post.status === 'archived') {
-                @if (isAdmin()) {
-                  <button type="button" (click)="republish(post.id)" class="rounded-lg bg-moss/10 px-3 py-1.5 text-sm font-medium text-moss-dark hover:bg-moss/20 transition-colors">
-                    Republish
-                  </button>
-                  <button type="button" (click)="remove(post.id)" class="rounded-lg px-3 py-1.5 text-sm font-medium text-muted hover:bg-cloud/60 hover:text-ink transition-colors">
-                    Delete
-                  </button>
-                }
+                <button type="button" (click)="republish(post.id)" class="rounded-lg bg-moss/10 px-3 py-1.5 text-sm font-medium text-moss-dark hover:bg-moss/20 transition-colors">
+                  Republish
+                </button>
+                <button type="button" (click)="remove(post.id)" class="rounded-lg px-3 py-1.5 text-sm font-medium text-muted hover:bg-cloud/60 hover:text-ink transition-colors">
+                  Delete
+                </button>
               }
             </div>
           </li>
@@ -93,14 +88,9 @@ const STATUS_LABELS: Record<ContentStatus, string> = {
 })
 export default class StudioPostsListComponent {
   private readonly blog = inject(BlogService);
-  private readonly auth = inject(AuthService);
 
   readonly posts = this.blog.all;
   readonly statusLabels = STATUS_LABELS;
-
-  isAdmin(): boolean {
-    return this.auth.currentUser()?.role === 'admin';
-  }
 
   submitForReview(id: string): void {
     void this.blog.submitForReview(id);

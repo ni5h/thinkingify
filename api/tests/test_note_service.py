@@ -56,7 +56,9 @@ def test_notes_endpoint_autosave_round_trip(client, admin_user, learner_user):
     assert get_resp.json()["body"] == "my scribbles"
 
 
-def test_notes_endpoint_rejects_author_role(client, admin_user, author_user):
+def test_notes_endpoint_works_for_any_authenticated_user(client, admin_user, author_user):
+    """No more role gate — notes just require authentication, same as
+    everything else."""
     admin_token = _token_for(admin_user, "admin")
     create_resp = client.post(
         "/api/v1/topics", json={"title": "A Topic"}, headers={"Authorization": f"Bearer {admin_token}"}
@@ -65,4 +67,4 @@ def test_notes_endpoint_rejects_author_role(client, admin_user, author_user):
 
     author_token = _token_for(author_user, "author")
     response = client.get(f"/api/v1/topics/{topic_id}/notes", headers={"Authorization": f"Bearer {author_token}"})
-    assert response.status_code == 403
+    assert response.status_code == 200

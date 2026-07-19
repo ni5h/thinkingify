@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.deps import require_admin, require_author_or_admin, require_content_actor, require_learner_or_admin
+from app.core.deps import get_current_user
 from app.models.user import User
 from app.schemas.content import ContentCreate, ContentListItem, ContentOut, ContentUpdate
 from app.services import content_service
@@ -17,7 +17,7 @@ async def _get_owned_or_404(db: AsyncSession, content_id: uuid.UUID, current_use
     content = await content_service.get_by_id(db, content_id)
     if content is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found.")
-    content_service.assert_owner_or_admin(content, current_user)
+    content_service.assert_owner(content, current_user)
     return content
 
 
@@ -37,7 +37,7 @@ async def get_published_by_slug(slug: str, db: Annotated[AsyncSession, Depends(g
 @router.get("", response_model=list[ContentListItem])
 async def list_all(
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_content_actor)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
     return await content_service.list_all(db, current_user)
 
@@ -46,7 +46,7 @@ async def list_all(
 async def get_one(
     content_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_content_actor)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
     return await _get_owned_or_404(db, content_id, current_user)
 
@@ -55,7 +55,7 @@ async def get_one(
 async def create(
     body: ContentCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_content_actor)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
     return await content_service.create(db, current_user, body)
 
@@ -65,7 +65,7 @@ async def update(
     content_id: uuid.UUID,
     body: ContentUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_content_actor)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
     content = await _get_owned_or_404(db, content_id, current_user)
     return await content_service.update(db, content, body)
@@ -75,7 +75,7 @@ async def update(
 async def submit_for_review(
     content_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_content_actor)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
     content = await _get_owned_or_404(db, content_id, current_user)
     return await content_service.transition(db, content, "submit_for_review")
@@ -85,7 +85,7 @@ async def submit_for_review(
 async def back_to_draft(
     content_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_content_actor)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
     content = await _get_owned_or_404(db, content_id, current_user)
     return await content_service.transition(db, content, "back_to_draft")
@@ -95,11 +95,9 @@ async def back_to_draft(
 async def publish(
     content_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_admin)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
-    content = await content_service.get_by_id(db, content_id)
-    if content is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found.")
+    content = await _get_owned_or_404(db, content_id, current_user)
     return await content_service.transition(db, content, "publish")
 
 
@@ -107,7 +105,7 @@ async def publish(
 async def archive(
     content_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_content_actor)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
     content = await _get_owned_or_404(db, content_id, current_user)
     return await content_service.transition(db, content, "archive")
@@ -117,7 +115,7 @@ async def archive(
 async def self_publish(
     content_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_learner_or_admin)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
     content = await _get_owned_or_404(db, content_id, current_user)
     return await content_service.transition(db, content, "self_publish")
@@ -127,7 +125,7 @@ async def self_publish(
 async def self_republish(
     content_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_learner_or_admin)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
     content = await _get_owned_or_404(db, content_id, current_user)
     return await content_service.transition(db, content, "self_republish")
@@ -137,11 +135,9 @@ async def self_republish(
 async def republish(
     content_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_admin)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
-    content = await content_service.get_by_id(db, content_id)
-    if content is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found.")
+    content = await _get_owned_or_404(db, content_id, current_user)
     return await content_service.transition(db, content, "republish")
 
 
@@ -149,9 +145,7 @@ async def republish(
 async def delete(
     content_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[User, Depends(require_admin)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
-    content = await content_service.get_by_id(db, content_id)
-    if content is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found.")
+    content = await _get_owned_or_404(db, content_id, current_user)
     await content_service.delete(db, content)
