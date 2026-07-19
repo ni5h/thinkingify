@@ -101,11 +101,12 @@ export class AuthService {
   }
 
   logout(): void {
-    const wasLearner = this.currentUser()?.role === 'learner';
     localStorage.removeItem(AuthService.ACCESS_TOKEN_KEY);
     localStorage.removeItem(AuthService.REFRESH_TOKEN_KEY);
     this.currentUser.set(null);
-    void this.router.navigate([wasLearner ? '/sherlock/login' : '/studio/login']);
+    // No more role-based "which section were they in" distinction — every
+    // user can reach everything, so just send them to the neutral home page.
+    void this.router.navigate(['/']);
   }
 
   getAccessToken(): string | null {

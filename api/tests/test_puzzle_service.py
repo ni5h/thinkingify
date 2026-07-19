@@ -127,20 +127,16 @@ async def test_attempts_recorded_regardless_of_outcome(db, learner_user):
     assert len(attempts) == 2
 
 
-def test_puzzle_endpoints_reject_author_role(client, author_user):
+def test_puzzle_endpoints_work_for_any_authenticated_user(client, author_user):
+    """No more role gate — puzzles just require authentication."""
     from app.core.security import create_access_token
 
     token = create_access_token(str(author_user.id), email=author_user.email, name=author_user.name, role="author")
     response = client.get(f"/api/v1/puzzles/{GAME_ID}/progress", headers={"Authorization": f"Bearer {token}"})
-    assert response.status_code == 403
-
-
-def test_puzzle_endpoints_accept_learner_role(client, learner_user):
-    from app.core.security import create_access_token
-
-    token = create_access_token(
-        str(learner_user.id), email=learner_user.email, name=learner_user.name, role="learner"
-    )
-    response = client.get(f"/api/v1/puzzles/{GAME_ID}/progress", headers={"Authorization": f"Bearer {token}"})
     assert response.status_code == 200
     assert response.json()["current_tier"] == "trial"
+
+
+def test_puzzle_endpoints_reject_unauthenticated(client):
+    response = client.get(f"/api/v1/puzzles/{GAME_ID}/progress")
+    assert response.status_code in (401, 403)

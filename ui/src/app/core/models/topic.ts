@@ -6,13 +6,13 @@ export interface TopicListItem {
   slug: string;
   status: TopicStatus;
   order_index: number;
+  author_id: string;
   updated_at: string;
 }
 
 export interface Topic extends TopicListItem {
   explainer_markdown: string;
   audio_url: string | null;
-  author_id: string;
   published_at: string | null;
   created_at: string;
 }

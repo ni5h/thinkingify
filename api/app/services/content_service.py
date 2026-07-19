@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.content import Content, ContentStatus
-from app.models.user import User, UserRole
+from app.models.user import User
 from app.schemas.content import ContentCreate, ContentUpdate
 
 # Legal status transitions, matching the button-gated state machine of the
@@ -19,10 +19,11 @@ _TRANSITIONS: dict[str, tuple[ContentStatus, ContentStatus]] = {
     "publish": (ContentStatus.pending_review, ContentStatus.published),
     "archive": (ContentStatus.published, ContentStatus.archived),
     "republish": (ContentStatus.archived, ContentStatus.published),
-    # Learner self-publish path: draft straight to published, no admin
-    # review step. Kept as distinct transitions (rather than reusing
-    # "publish"/"republish") so the admin-only publish endpoints stay
-    # untouched — see require_content_actor vs. require_admin in deps.py.
+    # Direct draft/archived -> published shortcut, distinct from the
+    # submit_for_review -> publish two-step. All endpoints are ownership-
+    # gated only now (no role distinction), so this is mostly a UX shortcut
+    # rather than a permission boundary — kept as separate actions since the
+    # frontend's Writing Studio calls this one specifically.
     "self_publish": (ContentStatus.draft, ContentStatus.published),
     "self_republish": (ContentStatus.archived, ContentStatus.published),
 }
@@ -122,16 +123,15 @@ async def list_published(db: AsyncSession) -> list[Content]:
 
 
 async def list_all(db: AsyncSession, current_user: User) -> list[Content]:
-    query = select(Content).where(Content.deleted_at.is_(None))
-    if current_user.role != UserRole.admin:
-        query = query.where(Content.author_id == current_user.id)
-    query = query.order_by(Content.updated_at.desc())
+    query = (
+        select(Content)
+        .where(Content.deleted_at.is_(None), Content.author_id == current_user.id)
+        .order_by(Content.updated_at.desc())
+    )
     result = await db.execute(query)
     return list(result.scalars().all())
 
 
-def assert_owner_or_admin(content: Content, current_user: User) -> None:
-    if current_user.role == UserRole.admin:
-        return
+def assert_owner(content: Content, current_user: User) -> None:
     if content.author_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not the author of this post.")

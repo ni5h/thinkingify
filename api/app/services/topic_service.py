@@ -105,3 +105,8 @@ async def list_all(db: AsyncSession) -> list[Topic]:
         select(Topic).where(Topic.deleted_at.is_(None)).order_by(Topic.order_index, Topic.created_at)
     )
     return list(result.scalars().all())
+
+
+def assert_owner(topic: Topic, current_user: User) -> None:
+    if topic.author_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not the author of this topic.")

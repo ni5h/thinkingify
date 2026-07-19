@@ -5,9 +5,6 @@ from collections.abc import AsyncGenerator
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 os.environ.setdefault("GOOGLE_CLIENT_ID", "test-client-id")
 os.environ.setdefault("JWT_SECRET", "test-secret")
-os.environ.setdefault("ADMIN_EMAILS", "admin@example.com")
-os.environ.setdefault("AUTHOR_EMAILS", "author@example.com")
-os.environ.setdefault("LEARNER_EMAILS", "learner@example.com")
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine

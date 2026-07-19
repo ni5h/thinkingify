@@ -3,6 +3,7 @@ import { DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { TopicService } from '../../../core/services/topic.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { TopicListItem } from '../../../core/models/topic';
 
 @Component({
   selector: 'app-topics-list',
@@ -11,11 +12,9 @@ import { AuthService } from '../../../core/services/auth.service';
   template: `
     <div class="flex items-baseline justify-between gap-4">
       <h1 class="font-display text-3xl">Rowling Topics</h1>
-      @if (isAdmin()) {
-        <a routerLink="/studio/topics/new" class="rounded-xl bg-moss px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-moss-dark transition-colors">
-          New topic
-        </a>
-      }
+      <a routerLink="/studio/topics/new" class="rounded-xl bg-moss px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-moss-dark transition-colors">
+        New topic
+      </a>
     </div>
 
     @if ((topics() ?? []).length === 0) {
@@ -33,7 +32,7 @@ import { AuthService } from '../../../core/services/auth.service';
               </div>
             </div>
 
-            @if (isAdmin()) {
+            @if (isOwner(topic)) {
               <div class="flex flex-wrap gap-2 mt-4">
                 <a [routerLink]="['/studio/topics', topic.id, 'edit']" class="rounded-lg bg-cloud px-3 py-1.5 text-sm font-medium text-ink hover:bg-cloud/80 transition-colors">
                   Edit
@@ -51,6 +50,12 @@ import { AuthService } from '../../../core/services/auth.service';
                   </button>
                 }
               </div>
+            } @else if (topic.status === 'published') {
+              <div class="flex flex-wrap gap-2 mt-4">
+                <a [routerLink]="['/rowling/topics', topic.slug]" class="rounded-lg px-3 py-1.5 text-sm font-medium text-muted hover:bg-cloud/60 hover:text-ink transition-colors">
+                  View live
+                </a>
+              </div>
             }
           </li>
         }
@@ -64,8 +69,8 @@ export default class TopicsListComponent {
 
   readonly topics = this.topicService.all;
 
-  isAdmin(): boolean {
-    return this.auth.currentUser()?.role === 'admin';
+  isOwner(topic: TopicListItem): boolean {
+    return topic.author_id === this.auth.currentUser()?.id;
   }
 
   publish(id: string): void {

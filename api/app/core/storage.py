@@ -62,8 +62,9 @@ async def upload_topic_audio(file: UploadFile) -> str:
     if len(raw) > _MAX_UPLOAD_AUDIO_BYTES:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Audio must be under 20MB.")
 
-    # No re-encoding — Pillow can't touch audio, and unlike images this is an
-    # admin-only upload path (require_admin), so raw bytes go straight through.
+    # No re-encoding — Pillow can't touch audio, so raw bytes go straight
+    # through as-is (unlike images, which get re-encoded for defense in
+    # depth against a spoofed content-type).
     ext = (file.content_type or "audio/mpeg").split("/")[-1].split(";")[0] or "mp3"
     path = f"topic-audio/{uuid.uuid4()}.{ext}"
     client = _supabase()

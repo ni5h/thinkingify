@@ -12,14 +12,12 @@ import { AuthService } from '../../../core/services/auth.service';
     <div class="flex items-baseline justify-between gap-4">
       <div>
         <h1 class="font-display text-3xl">Welcome, {{ auth.currentUser()?.name }}</h1>
-        <p class="text-muted mt-1">{{ auth.currentUser()?.role === 'admin' ? 'Admin' : 'Author' }} &middot; Thinkingify Studio</p>
+        <p class="text-muted mt-1">Thinkingify Studio</p>
       </div>
       <div class="flex gap-2">
-        @if (auth.currentUser()?.role === 'admin') {
-          <a routerLink="/studio/topics" class="rounded-xl border border-cloud bg-paper px-5 py-2.5 text-sm font-medium text-ink hover:border-moss hover:bg-cloud/60 transition-colors">
-            Rowling topics
-          </a>
-        }
+        <a routerLink="/studio/topics" class="rounded-xl border border-cloud bg-paper px-5 py-2.5 text-sm font-medium text-ink hover:border-moss hover:bg-cloud/60 transition-colors">
+          Rowling topics
+        </a>
         <a routerLink="/studio/posts/new" class="rounded-xl bg-moss px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-moss-dark transition-colors">
           New post
         </a>

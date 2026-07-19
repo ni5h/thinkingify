@@ -44,4 +44,5 @@ class TopicListItem(BaseModel):
     slug: str
     status: TopicStatus
     order_index: int
+    author_id: uuid.UUID
     updated_at: datetime
