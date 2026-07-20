@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.puzzle import PuzzleAttempt, PuzzleGameProgress, PuzzleTier, TIER_ORDER, next_tier
 from app.models.user import User
-from app.schemas.puzzle import VARIATIONS_PER_TIER, AttemptCreate, GameStatsOut
+from app.schemas.puzzle import VARIATIONS_PER_TIER, AttemptCreate, GameStatsOut, TierStatsOut
 
 # One small integer per tier per game — not the puzzle-generation algorithm
 # itself, which stays client-side (see kakooma.engine.ts's TIERS array,
@@ -73,15 +73,28 @@ async def record_attempt(
     _known_game_or_404(game_id)
     progress = await get_or_create_progress(db, user, game_id)
 
-    target_ms = TIER_TARGET_TIME_MS[game_id][progress.current_tier]
+    is_practice = data.practice_tier is not None
+    if is_practice:
+        if TIER_ORDER.index(data.practice_tier) >= TIER_ORDER.index(progress.current_tier):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Can only practice a tier you've already passed.",
+            )
+        tier_for_attempt = data.practice_tier
+    else:
+        tier_for_attempt = progress.current_tier
+
+    target_ms = TIER_TARGET_TIME_MS[game_id][tier_for_attempt]
     beat_time_limit = data.correct and data.time_taken_ms <= target_ms
 
     attempt = PuzzleAttempt(
         id=uuid.uuid4(),
         user_id=user.id,
         game_id=game_id,
-        tier=progress.current_tier,
-        variation_index=progress.variations_completed,
+        tier=tier_for_attempt,
+        # variation_index has no meaning for a practice attempt (there's no
+        # "10 variations to complete" concept in practice mode) — just 0.
+        variation_index=0 if is_practice else progress.variations_completed,
         started_at=data.started_at,
         completed_at=data.completed_at,
         time_taken_ms=data.time_taken_ms,
@@ -91,7 +104,9 @@ async def record_attempt(
     db.add(attempt)
 
     tier_advanced = False
-    if beat_time_limit and progress.variations_completed < VARIATIONS_PER_TIER:
+    # Practice attempts never touch variations_completed/current_tier/
+    # highest_tier_unlocked — that's the entire point of practice mode.
+    if not is_practice and beat_time_limit and progress.variations_completed < VARIATIONS_PER_TIER:
         progress.variations_completed += 1
         if progress.variations_completed >= VARIATIONS_PER_TIER:
             upgraded = next_tier(progress.current_tier)
@@ -151,4 +166,26 @@ async def get_stats_for_user(db: AsyncSession, user: User) -> list[GameStatsOut]
             last_attempt_at=row.last_attempt_at,
         )
         for row in rows
+    ]
+
+
+async def get_tier_stats(db: AsyncSession, user: User, game_id: str) -> list[TierStatsOut]:
+    """Powers both the per-tier timing display and the practice-tier picker
+    on a Kakooma variation page — see kakooma.component.ts."""
+    _known_game_or_404(game_id)
+
+    result = await db.execute(
+        select(
+            PuzzleAttempt.tier,
+            func.count(PuzzleAttempt.id).label("attempts"),
+            func.min(case((PuzzleAttempt.correct, PuzzleAttempt.time_taken_ms), else_=None)).label(
+                "fastest_time_ms"
+            ),
+        )
+        .where(PuzzleAttempt.user_id == user.id, PuzzleAttempt.game_id == game_id)
+        .group_by(PuzzleAttempt.tier)
+    )
+    return [
+        TierStatsOut(tier=row.tier, attempts=row.attempts, fastest_time_ms=row.fastest_time_ms)
+        for row in result.all()
     ]

@@ -1,5 +1,5 @@
 import { AfterViewInit, Component, ElementRef, inject, signal, viewChild } from '@angular/core';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
 import { APP_CONFIG } from '../../../core/config';
 
@@ -36,8 +36,10 @@ import { APP_CONFIG } from '../../../core/config';
 export default class StudioLoginComponent implements AfterViewInit {
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
 
   private readonly googleBtnContainer = viewChild<ElementRef<HTMLDivElement>>('googleBtn');
+  private readonly returnUrl = this.route.snapshot.queryParamMap.get('returnUrl') ?? '/studio';
 
   readonly error = signal<string | null>(null);
   readonly googleUnavailable = signal(false);
@@ -77,7 +79,7 @@ export default class StudioLoginComponent implements AfterViewInit {
     this.error.set(null);
     try {
       await this.authService.handleGoogleCredential(idToken);
-      await this.router.navigate(['/studio']);
+      await this.router.navigateByUrl(this.returnUrl);
     } catch {
       this.error.set('Sign in failed — this Google account may not be authorized for Thinkingify Studio.');
     }
@@ -87,7 +89,7 @@ export default class StudioLoginComponent implements AfterViewInit {
     this.error.set(null);
     try {
       await this.authService.devLogin();
-      await this.router.navigate(['/studio']);
+      await this.router.navigateByUrl(this.returnUrl);
     } catch {
       this.error.set('Dev login is not enabled on this backend.');
     }

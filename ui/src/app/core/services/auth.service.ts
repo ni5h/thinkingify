@@ -45,6 +45,22 @@ export class AuthService {
   readonly currentUser = signal<AuthUser | null>(this.loadUserFromToken());
   readonly isAuthenticated = computed(() => this.currentUser() !== null);
 
+  // Resolves once the initial auth state is actually settled. On a fresh
+  // page load, loadUserFromToken() only ever checks the access token (30
+  // min expiry) — if that's expired but a refresh token (7 day expiry)
+  // still exists, this kicks off a silent refresh so guards don't bounce
+  // an otherwise-valid session to the login screen. Guards await this
+  // before reading isAuthenticated().
+  readonly ready: Promise<void>;
+
+  constructor() {
+    if (this.currentUser() === null && localStorage.getItem(AuthService.REFRESH_TOKEN_KEY)) {
+      this.ready = this.refreshToken().then(() => undefined);
+    } else {
+      this.ready = Promise.resolve();
+    }
+  }
+
   private loadUserFromToken(): AuthUser | null {
     const token = localStorage.getItem(AuthService.ACCESS_TOKEN_KEY);
     if (!token) return null;
