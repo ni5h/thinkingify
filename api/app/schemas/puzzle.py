@@ -45,3 +45,16 @@ class AttemptResultOut(BaseModel):
     attempt: AttemptOut
     progress: GameProgressOut
     tier_advanced: bool
+
+
+class GameStatsOut(BaseModel):
+    """Effort-focused, not output-focused: counts and time invested, never
+    an accuracy percentage or "best time" — see puzzle_service.get_stats_for_user."""
+
+    game_id: str
+    current_tier: PuzzleTier
+    total_attempts: int
+    attempts_today: int
+    attempts_this_week: int  # rolling 7 days, not calendar week
+    total_time_ms: int
+    last_attempt_at: datetime | None

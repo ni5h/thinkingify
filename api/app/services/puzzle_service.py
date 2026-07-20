@@ -1,12 +1,13 @@
 import uuid
+from datetime import UTC, datetime, timedelta
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.puzzle import PuzzleAttempt, PuzzleGameProgress, PuzzleTier, TIER_ORDER, next_tier
 from app.models.user import User
-from app.schemas.puzzle import VARIATIONS_PER_TIER, AttemptCreate
+from app.schemas.puzzle import VARIATIONS_PER_TIER, AttemptCreate, GameStatsOut
 
 # One small integer per tier per game — not the puzzle-generation algorithm
 # itself, which stays client-side (see kakooma.engine.ts's TIERS array,
@@ -14,12 +15,33 @@ from app.schemas.puzzle import VARIATIONS_PER_TIER, AttemptCreate
 # duplication: the server independently verifies the reported time against
 # its own copy of the limit rather than trusting a client-sent boolean.
 TIER_TARGET_TIME_MS: dict[str, dict[PuzzleTier, int]] = {
-    "kakooma": {
+    "kakooma-add": {
         PuzzleTier.trial: 20_000,
         PuzzleTier.beginner: 12_000,
         PuzzleTier.intermediate: 15_000,
         PuzzleTier.advanced: 25_000,
         PuzzleTier.pro: 15_000,
+    },
+    "kakooma-subtract": {
+        PuzzleTier.trial: 20_000,
+        PuzzleTier.beginner: 12_000,
+        PuzzleTier.intermediate: 15_000,
+        PuzzleTier.advanced: 25_000,
+        PuzzleTier.pro: 15_000,
+    },
+    "kakooma-multiply": {
+        PuzzleTier.trial: 20_000,
+        PuzzleTier.beginner: 12_000,
+        PuzzleTier.intermediate: 18_000,
+        PuzzleTier.advanced: 28_000,
+        PuzzleTier.pro: 18_000,
+    },
+    "kakooma-divide": {
+        PuzzleTier.trial: 20_000,
+        PuzzleTier.beginner: 12_000,
+        PuzzleTier.intermediate: 18_000,
+        PuzzleTier.advanced: 28_000,
+        PuzzleTier.pro: 18_000,
     },
 }
 
@@ -85,3 +107,48 @@ async def record_attempt(
     await db.refresh(attempt)
     await db.refresh(progress)
     return attempt, progress, tier_advanced
+
+
+async def get_stats_for_user(db: AsyncSession, user: User) -> list[GameStatsOut]:
+    """One grouped query, reused by all 3 metric surfaces (Dashboard sums
+    across games, the Sherlock room shows one row per game, a Kakooma
+    variation page filters to its own game_id) — see ui/CLAUDE.md. Only
+    returns rows for games the user has actually attempted; the frontend
+    merges this against its own static list of known games for the
+    zero-state ("not started yet") cards.
+    """
+    now = datetime.now(UTC)
+    today_start = datetime(now.year, now.month, now.day, tzinfo=UTC)
+    week_start = now - timedelta(days=7)
+
+    result = await db.execute(
+        select(
+            PuzzleAttempt.game_id,
+            func.count(PuzzleAttempt.id).label("total_attempts"),
+            func.sum(case((PuzzleAttempt.created_at >= today_start, 1), else_=0)).label("attempts_today"),
+            func.sum(case((PuzzleAttempt.created_at >= week_start, 1), else_=0)).label("attempts_this_week"),
+            func.sum(PuzzleAttempt.time_taken_ms).label("total_time_ms"),
+            func.max(PuzzleAttempt.created_at).label("last_attempt_at"),
+        )
+        .where(PuzzleAttempt.user_id == user.id)
+        .group_by(PuzzleAttempt.game_id)
+    )
+    rows = result.all()
+
+    progress_result = await db.execute(select(PuzzleGameProgress).where(PuzzleGameProgress.user_id == user.id))
+    progress_by_game = {p.game_id: p for p in progress_result.scalars().all()}
+
+    return [
+        GameStatsOut(
+            game_id=row.game_id,
+            current_tier=progress_by_game[row.game_id].current_tier
+            if row.game_id in progress_by_game
+            else PuzzleTier.trial,
+            total_attempts=row.total_attempts,
+            attempts_today=row.attempts_today or 0,
+            attempts_this_week=row.attempts_this_week or 0,
+            total_time_ms=row.total_time_ms or 0,
+            last_attempt_at=row.last_attempt_at,
+        )
+        for row in rows
+    ]

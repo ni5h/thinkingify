@@ -47,3 +47,15 @@ export interface AttemptResult {
   progress: GameProgress;
   tier_advanced: boolean;
 }
+
+// Effort-focused stats — counts and time invested, never an accuracy
+// percentage or "best time". See api/app/schemas/puzzle.py's GameStatsOut.
+export interface GameStats {
+  game_id: string;
+  current_tier: PuzzleTier;
+  total_attempts: number;
+  attempts_today: number;
+  attempts_this_week: number;
+  total_time_ms: number;
+  last_attempt_at: string | null;
+}

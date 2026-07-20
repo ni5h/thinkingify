@@ -11,7 +11,7 @@ export const routes: Routes = [
     canActivate: [noPuzzleAuthGuard],
   },
   {
-    path: 'sherlock/kakooma',
+    path: 'sherlock/kakooma/:operation',
     loadComponent: () => import('./features/sherlock/kakooma/kakooma.component'),
     canActivate: [sherlockAuthGuard],
   },
