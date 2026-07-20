@@ -1,14 +1,29 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { PuzzleProgressService } from '../../../core/services/puzzle-progress.service';
 import { PuzzleTier, tierLabel } from '../../../core/models/puzzle';
+import { StorageService } from '../../../core/services/storage.service';
 import { FeedbackState } from '../shared/feedback-toast.component';
 import { GameShellComponent } from '../shared/game-shell.component';
 import { KakoomaEngine } from './kakooma.engine';
-import { KakoomaPuzzle } from './kakooma.model';
+import {
+  KAKOOMA_OPERATIONS,
+  KAKOOMA_OPERATION_LABELS,
+  KAKOOMA_OPERATION_VERBS,
+  KakoomaOperation,
+  KakoomaPuzzle,
+} from './kakooma.model';
 
 const FEEDBACK_DELAY_MS = 1200;
-const engine = new KakoomaEngine();
+
+function isKakoomaOperation(value: string | null): value is KakoomaOperation {
+  return !!value && (KAKOOMA_OPERATIONS as string[]).includes(value);
+}
+
+function formatTimePracticed(totalMs: number): string {
+  const minutes = Math.round(totalMs / 60_000);
+  return minutes < 1 ? 'under a minute' : `${minutes} min`;
+}
 
 @Component({
   selector: 'app-kakooma',
@@ -19,10 +34,16 @@ const engine = new KakoomaEngine();
       &larr; Back to puzzles
     </a>
 
+    @if (myStats(); as s) {
+      <p class="text-center text-xs text-muted font-mono mt-4">
+        {{ s.attempts_today }} today &middot; {{ s.total_attempts }} all-time &middot; {{ timePracticed() }} practiced
+      </p>
+    }
+
     <div class="mt-6">
       @if (puzzle(); as p) {
         <app-game-shell
-          gameTitle="Kakooma"
+          [gameTitle]="gameTitle()"
           [tierLabel]="tierLabelText()"
           [variationsCompleted]="variationsCompleted()"
           [variationsPerTier]="10"
@@ -31,7 +52,7 @@ const engine = new KakoomaEngine();
           [feedback]="feedback()"
         >
           <p class="text-center text-muted mb-6">
-            Tap the number that's the {{ p.operation === 'add' ? 'sum' : 'product' }} of two others.
+            Tap the number that's the {{ verb() }} of two others.
           </p>
           <div class="grid grid-cols-2 gap-4">
             @for (n of p.numbers; track $index) {
@@ -55,8 +76,22 @@ const engine = new KakoomaEngine();
   `,
 })
 export default class KakoomaComponent {
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly puzzleProgress = inject(PuzzleProgressService);
-  private readonly progress = this.puzzleProgress.progressResource(engine.gameId);
+  private readonly storage = inject(StorageService);
+
+  private readonly operation: KakoomaOperation;
+  private readonly engine: KakoomaEngine;
+  private readonly progress;
+
+  readonly gameTitle = computed(() => `Kakooma — ${KAKOOMA_OPERATION_LABELS[this.operation]}`);
+  readonly verb = computed(() => KAKOOMA_OPERATION_VERBS[this.operation]);
+
+  readonly myStats = computed(() =>
+    (this.puzzleProgress.stats() ?? []).find((s) => s.game_id === this.engine.gameId)
+  );
+  readonly timePracticed = computed(() => formatTimePracticed(this.myStats()?.total_time_ms ?? 0));
 
   readonly tier = signal<PuzzleTier>('trial');
   readonly variationsCompleted = signal(0);
@@ -72,6 +107,16 @@ export default class KakoomaComponent {
   private initialized = false;
 
   constructor() {
+    const opParam = this.route.snapshot.paramMap.get('operation');
+    if (!isKakoomaOperation(opParam)) {
+      void this.router.navigate(['/sherlock']);
+      this.operation = 'add';
+    } else {
+      this.operation = opParam;
+    }
+    this.engine = new KakoomaEngine(this.operation);
+    this.progress = this.puzzleProgress.progressResource(this.engine.gameId);
+
     effect(() => {
       const value = this.progress.value();
       if (value && !this.initialized) {
@@ -84,7 +129,7 @@ export default class KakoomaComponent {
   }
 
   private startNewPuzzle(): void {
-    this.puzzle.set(engine.generate(this.tier()));
+    this.puzzle.set(this.engine.generate(this.tier()));
     this.startedAt = Date.now();
   }
 
@@ -92,7 +137,7 @@ export default class KakoomaComponent {
     const puzzle = this.puzzle();
     if (!puzzle || !this.isAnswering()) return;
 
-    const correct = engine.validate(puzzle, index);
+    const correct = this.engine.validate(puzzle, index);
     const startedAtIso = new Date(this.startedAt).toISOString();
     const completedAt = new Date();
     const timeTakenMs = completedAt.getTime() - this.startedAt;
@@ -101,7 +146,7 @@ export default class KakoomaComponent {
     this.streak.set(correct ? this.streak() + 1 : 0);
 
     try {
-      const result = await this.puzzleProgress.recordAttempt(engine.gameId, {
+      const result = await this.puzzleProgress.recordAttempt(this.engine.gameId, {
         started_at: startedAtIso,
         completed_at: completedAt.toISOString(),
         time_taken_ms: timeTakenMs,
@@ -112,6 +157,7 @@ export default class KakoomaComponent {
       if (result.tier_advanced) {
         this.tierAdvancedMessage.set(`You unlocked ${tierLabel(result.progress.current_tier)}!`);
       }
+      this.storage.recordActivityToday();
     } catch {
       // Network hiccup — local feedback still shown; the next attempt retries.
     }
