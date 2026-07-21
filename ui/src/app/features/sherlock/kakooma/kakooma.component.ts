@@ -5,6 +5,7 @@ import { PUZZLE_TIERS, PuzzleTier, tierLabel } from '../../../core/models/puzzle
 import { StorageService } from '../../../core/services/storage.service';
 import { FeedbackState } from '../shared/feedback-toast.component';
 import { GameShellComponent } from '../shared/game-shell.component';
+import { formatTimePracticed } from '../shared/puzzle-format.util';
 import { KakoomaEngine } from './kakooma.engine';
 import {
   KAKOOMA_OPERATIONS,
@@ -18,11 +19,6 @@ const FEEDBACK_DELAY_MS = 1200;
 
 function isKakoomaOperation(value: string | null): value is KakoomaOperation {
   return !!value && (KAKOOMA_OPERATIONS as string[]).includes(value);
-}
-
-function formatTimePracticed(totalMs: number): string {
-  const minutes = Math.round(totalMs / 60_000);
-  return minutes < 1 ? 'under a minute' : `${minutes} min`;
 }
 
 function formatFastest(ms: number | null): string {
@@ -58,9 +54,12 @@ interface TierRow {
           [tierLabel]="tierLabelText()"
           [variationsCompleted]="variationsCompleted()"
           [variationsPerTier]="10"
+          [progressOverride]="practiceProgressText()"
           [streak]="streak()"
           [running]="isAnswering()"
           [feedback]="feedback()"
+          [awaitingStart]="awaitingStart()"
+          (start)="confirmStart()"
         >
           <p class="text-center text-muted mb-6">
             Tap the number that's the {{ verb() }} of two others.
@@ -153,6 +152,14 @@ export default class KakoomaComponent {
     this.practiceTier() ? `Practicing: ${tierLabel(this.practiceTier()!)}` : tierLabel(this.tier())
   );
 
+  // Session-local "how many times have I retried" counter — practice mode
+  // never touches variationsCompleted, so this fills the gap that would
+  // otherwise leave the header frozen at "0/10" the whole practice session.
+  readonly practiceAttemptCount = signal(0);
+  readonly practiceProgressText = computed(() =>
+    this.practiceTier() ? `Attempt ${this.practiceAttemptCount()}` : null
+  );
+
   readonly tierLabel = tierLabel;
 
   readonly tierRows = computed<TierRow[]>(() => {
@@ -174,7 +181,12 @@ export default class KakoomaComponent {
   readonly puzzle = signal<KakoomaPuzzle | null>(null);
   readonly tierAdvancedMessage = signal<string | null>(null);
   readonly fasterMessage = signal<string | null>(null);
-  readonly isAnswering = computed(() => this.feedback() === null);
+
+  // Every round waits for an explicit tap before the scoring clock starts —
+  // fairer timing, since a learner shouldn't be penalized for not being
+  // ready the instant a puzzle is generated.
+  readonly awaitingStart = signal(true);
+  readonly isAnswering = computed(() => this.feedback() === null && !this.awaitingStart());
 
   private startedAt = 0;
   private initialized = false;
@@ -204,17 +216,25 @@ export default class KakoomaComponent {
 
   private startNewPuzzle(): void {
     this.puzzle.set(this.engine.generate(this.activeTier()));
+    this.awaitingStart.set(true);
+  }
+
+  confirmStart(): void {
+    if (!this.awaitingStart()) return;
     this.startedAt = Date.now();
+    this.awaitingStart.set(false);
   }
 
   enterPractice(tier: PuzzleTier): void {
     if (tier === this.tier()) return;
     this.practiceTier.set(tier);
+    this.practiceAttemptCount.set(0);
     this.startNewPuzzle();
   }
 
   exitPractice(): void {
     this.practiceTier.set(null);
+    this.practiceAttemptCount.set(0);
     this.startNewPuzzle();
   }
 
@@ -230,6 +250,9 @@ export default class KakoomaComponent {
 
     this.feedback.set(correct ? 'correct' : 'incorrect');
     this.streak.set(correct ? this.streak() + 1 : 0);
+    if (practicing) {
+      this.practiceAttemptCount.update((v) => v + 1);
+    }
 
     const previousFastest = practicing
       ? ((this.tierStats.value() ?? []).find((s) => s.tier === practicing)?.fastest_time_ms ?? null)

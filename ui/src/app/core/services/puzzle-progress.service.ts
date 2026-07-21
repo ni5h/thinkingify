@@ -1,8 +1,15 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, computed, inject } from '@angular/core';
 import { HttpClient, httpResource } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { AttemptCreate, AttemptResult, GameProgress, GameStats, TierStats } from '../models/puzzle';
 import { AuthService } from './auth.service';
+
+export interface RoomStatsSummary {
+  totalAttempts: number;
+  attemptsThisWeek: number;
+  totalTimeMs: number;
+  lastAttemptAt: string | null;
+}
 
 /**
  * Progress is single-writer (only this learner, only this component, ever
@@ -33,6 +40,24 @@ export class PuzzleProgressService {
 
   tierStatsResource(gameId: string) {
     return httpResource<TierStats[]>(() => `/api/v1/puzzles/${gameId}/tier-stats`);
+  }
+
+  // Shared by the Dashboard's per-room sections and each room's own home
+  // page (e.g. Sherlock's "as a whole" stats block and its Kakooma summary
+  // card) so the summation logic exists exactly once.
+  roomStats(matchesGameId: (gameId: string) => boolean) {
+    return computed<RoomStatsSummary>(() => {
+      const rows = (this.stats() ?? []).filter((s) => matchesGameId(s.game_id));
+      return {
+        totalAttempts: rows.reduce((sum, s) => sum + s.total_attempts, 0),
+        attemptsThisWeek: rows.reduce((sum, s) => sum + s.attempts_this_week, 0),
+        totalTimeMs: rows.reduce((sum, s) => sum + s.total_time_ms, 0),
+        lastAttemptAt: rows.reduce<string | null>(
+          (latest, s) => (s.last_attempt_at && (!latest || s.last_attempt_at > latest) ? s.last_attempt_at : latest),
+          null
+        ),
+      };
+    });
   }
 
   async recordAttempt(gameId: string, attempt: AttemptCreate): Promise<AttemptResult> {
