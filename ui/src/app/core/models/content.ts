@@ -1,5 +1,5 @@
 export type ContentStatus = 'draft' | 'pending_review' | 'published' | 'archived';
-export type WritingStyle = 'documentary' | 'story' | 'fun_casual';
+export type WritingStyle = 'documentary' | 'story' | 'fun_casual' | 'freeform';
 
 export interface ContentListItem {
   id: string;

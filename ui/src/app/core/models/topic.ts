@@ -4,6 +4,8 @@ export interface TopicListItem {
   id: string;
   title: string;
   slug: string;
+  explainer_markdown: string;
+  audio_url: string | null;
   status: TopicStatus;
   order_index: number;
   author_id: string;
@@ -11,8 +13,6 @@ export interface TopicListItem {
 }
 
 export interface Topic extends TopicListItem {
-  explainer_markdown: string;
-  audio_url: string | null;
   published_at: string | null;
   created_at: string;
 }

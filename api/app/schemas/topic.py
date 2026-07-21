@@ -42,6 +42,8 @@ class TopicListItem(BaseModel):
     id: uuid.UUID
     title: str
     slug: str
+    explainer_markdown: str
+    audio_url: str | None
     status: TopicStatus
     order_index: int
     author_id: uuid.UUID

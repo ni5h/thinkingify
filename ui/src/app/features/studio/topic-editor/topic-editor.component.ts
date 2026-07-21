@@ -49,7 +49,7 @@ const AUTOSAVE_DELAY_MS = 3000;
       </label>
 
       <label class="flex flex-col gap-1">
-        <span class="text-sm font-medium text-muted">Audio narration (optional)</span>
+        <span class="text-sm font-medium text-muted">Audio narration — required to publish</span>
         <input type="file" accept="audio/*" [disabled]="uploadingAudio()" (change)="onAudioSelected($event)" />
         @if (uploadingAudio()) {
           <p class="text-xs text-muted mt-1">Uploading…</p>
@@ -83,9 +83,17 @@ const AUTOSAVE_DELAY_MS = 3000;
           {{ saving() ? 'Saving…' : 'Save' }}
         </button>
         @if (topicId && status() === 'draft') {
-          <button type="button" (click)="publish()" class="rounded-xl border border-cloud bg-paper px-5 py-2.5 text-sm font-medium text-ink hover:border-moss hover:bg-cloud/60 transition-colors">
+          <button
+            type="button"
+            (click)="publish()"
+            [disabled]="!audioUrl()"
+            class="rounded-xl border border-cloud bg-paper px-5 py-2.5 text-sm font-medium text-ink hover:border-moss hover:bg-cloud/60 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          >
             Publish
           </button>
+          @if (!audioUrl()) {
+            <span class="text-xs text-muted self-center">Add audio above before you can publish.</span>
+          }
         }
         @if (topicId && status() === 'published') {
           <button type="button" (click)="unpublish()" class="rounded-xl border border-cloud bg-paper px-5 py-2.5 text-sm font-medium text-ink hover:border-moss hover:bg-cloud/60 transition-colors">
@@ -301,8 +309,14 @@ export default class TopicEditorComponent implements AfterViewInit, OnDestroy {
 
   async publish(): Promise<void> {
     if (!this.topicId) return;
-    await this.topicService.publish(this.topicId);
-    this.status.set('published');
+    this.error.set(null);
+    try {
+      await this.topicService.publish(this.topicId);
+      this.status.set('published');
+    } catch (err) {
+      const detail = (err as { error?: { detail?: string } })?.error?.detail;
+      this.error.set(detail ?? 'Could not publish this topic. Please try again.');
+    }
   }
 
   async unpublish(): Promise<void> {

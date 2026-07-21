@@ -29,10 +29,20 @@ import { BlogService } from '../../../core/services/blog.service';
         @for (topic of topics(); track topic.id) {
           <a
             [routerLink]="['/rowling/topics', topic.slug]"
-            class="rounded-2xl border border-cloud bg-white shadow-sm p-5 hover:shadow-md transition-shadow flex items-center gap-3"
+            class="rounded-2xl border border-cloud bg-white shadow-sm p-5 hover:shadow-md transition-shadow flex flex-col gap-3"
           >
-            <app-icon name="rowling" [size]="22" class="text-moss shrink-0" />
-            <h3 class="font-display text-lg text-ink">{{ topic.title }}</h3>
+            <div class="flex items-center gap-3">
+              <app-icon name="rowling" [size]="22" class="text-moss shrink-0" />
+              <h3 class="font-display text-lg text-ink">{{ topic.title }}</h3>
+            </div>
+            @if (topic.explainer_markdown) {
+              <p class="text-sm text-muted line-clamp-2">{{ topic.explainer_markdown }}</p>
+            }
+            @if (progressByTopicId().get(topic.id); as p) {
+              <span class="text-xs font-mono text-moss-dark bg-moss/10 rounded-full px-2.5 py-1 self-start">
+                {{ p === 'published' ? 'Published' : 'In progress' }}
+              </span>
+            }
           </a>
         }
       </div>
@@ -68,4 +78,14 @@ export default class RoomLandingComponent {
   private readonly ownRowlingPosts = computed(() => (this.blog.all() ?? []).filter((p) => p.topic_id));
   readonly drafts = computed(() => this.ownRowlingPosts().filter((p) => p.status === 'draft'));
   readonly published = computed(() => this.ownRowlingPosts().filter((p) => p.status === 'published'));
+
+  readonly progressByTopicId = computed(() => {
+    const map = new Map<string, 'draft' | 'published'>();
+    for (const post of this.blog.all() ?? []) {
+      if (!post.topic_id) continue;
+      if (post.status === 'published') map.set(post.topic_id, 'published');
+      else if (post.status === 'draft' && !map.has(post.topic_id)) map.set(post.topic_id, 'draft');
+    }
+    return map;
+  });
 }

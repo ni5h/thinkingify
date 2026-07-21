@@ -15,6 +15,7 @@ const STYLES: StyleOption[] = [
   { value: 'documentary', label: 'Documentary', description: 'Explain it like you’re narrating the facts.' },
   { value: 'story', label: 'Story', description: 'Two friends talking it through.' },
   { value: 'fun_casual', label: 'Fun & casual', description: 'Whatever way feels natural to you.' },
+  { value: 'freeform', label: 'Write from scratch', description: 'A blank page — write it your own way.' },
 ];
 
 @Component({
@@ -30,7 +31,7 @@ const STYLES: StyleOption[] = [
       <h1 class="font-display text-3xl mt-6">Pick a style</h1>
       <p class="text-muted mt-2">How do you want to tell it?</p>
 
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-8">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-8">
         @for (style of styles; track style.value) {
           <button
             type="button"

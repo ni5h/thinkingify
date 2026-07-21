@@ -17,37 +17,46 @@ import { NotesPanelComponent } from '../../../shared/components/notes-panel/note
     </a>
 
     @if (topic()) {
-      <div class="md:flex md:gap-6 mt-6">
-        <article class="md:flex-1 min-w-0">
-          <h1 class="font-display text-3xl text-ink">{{ topic()!.title }}</h1>
+      <div class="mt-6 max-w-4xl">
+        <h1 class="font-display text-3xl text-ink">{{ topic()!.title }}</h1>
+        <div class="markdown-content text-lg text-ink/80 mt-3 max-w-prose" [innerHTML]="renderedHook()"></div>
 
-          @if (topic()!.audio_url) {
-            <div class="mt-4">
-              <app-audio-player [src]="topic()!.audio_url!" />
+        @if (topic()!.audio_url) {
+          <h2 class="text-sm font-medium text-muted uppercase tracking-wide mt-8">Listen &amp; take notes</h2>
+          <div class="md:flex md:items-stretch md:gap-6 mt-3">
+            <div class="md:flex-1 min-w-0">
+              <app-audio-player [src]="topic()!.audio_url!" size="large" />
             </div>
-          }
-
-          <div class="markdown-content mt-6" [innerHTML]="renderedContent()"></div>
-
-          <div class="mt-10 rounded-2xl border border-cloud bg-white shadow-sm p-6 text-center">
-            <p class="font-display text-xl">Ready to write your own take?</p>
-            <a
-              [routerLink]="['/rowling/topics', slug, 'style']"
-              class="inline-block mt-4 rounded-xl bg-moss px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-moss-dark transition-colors"
-            >
-              Start writing
-            </a>
+            <aside class="md:w-80 shrink-0 mt-4 md:mt-0">
+              <app-notes-panel
+                [body]="noteBody()"
+                [status]="autosaveStatus()"
+                (bodyChange)="noteBody.set($event)"
+                (blurred)="saveNote()"
+              />
+            </aside>
           </div>
-        </article>
+        } @else {
+          <p class="text-muted mt-8 text-sm">Audio for this topic is coming soon.</p>
+          <aside class="mt-4 max-w-md">
+            <app-notes-panel
+              [body]="noteBody()"
+              [status]="autosaveStatus()"
+              (bodyChange)="noteBody.set($event)"
+              (blurred)="saveNote()"
+            />
+          </aside>
+        }
 
-        <aside class="md:w-80 shrink-0 mt-8 md:mt-0">
-          <app-notes-panel
-            [body]="noteBody()"
-            [status]="autosaveStatus()"
-            (bodyChange)="noteBody.set($event)"
-            (blurred)="saveNote()"
-          />
-        </aside>
+        <div class="mt-10 rounded-2xl border border-cloud bg-white shadow-sm p-6 text-center">
+          <p class="font-display text-xl">Ready to write your own take?</p>
+          <a
+            [routerLink]="['/rowling/topics', slug, 'style']"
+            class="inline-block mt-4 rounded-xl bg-moss px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-moss-dark transition-colors"
+          >
+            Start writing
+          </a>
+        </div>
       </div>
     } @else if (topic() === null) {
       <p class="text-muted mt-6">This topic couldn't be found.</p>
@@ -65,7 +74,7 @@ export default class TopicReaderComponent implements OnInit {
   readonly noteBody = signal('');
   readonly autosaveStatus = signal<string | null>(null);
 
-  readonly renderedContent = computed(() => {
+  readonly renderedHook = computed(() => {
     const topic = this.topic();
     return topic ? marked.parse(topic.explainer_markdown, { async: false }) : '';
   });

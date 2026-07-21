@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict
 
 from app.models.content import ContentStatus
 
-WritingStyle = Literal["documentary", "story", "fun_casual"]
+WritingStyle = Literal["documentary", "story", "fun_casual", "freeform"]
 
 
 class ContentCreate(BaseModel):

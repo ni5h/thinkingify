@@ -10,14 +10,17 @@ import { WritingStyle } from '../../../core/models/content';
 import { NotesPanelComponent } from '../../../shared/components/notes-panel/notes-panel.component';
 
 const AUTOSAVE_DELAY_MS = 3000;
+const FREEFORM_PLACEHOLDER = 'Start writing...';
 
-// Structural scaffolding only, shown as TipTap ghost text — never written
-// into getMarkdown(), vanishes on first keystroke. Never generated content,
-// consistent with the app's "no AI writes for him" rule.
-const STYLE_PLACEHOLDERS: Record<WritingStyle, string> = {
-  documentary: "What's your opening fact?",
-  story: 'Who are your friends talking about this?',
-  fun_casual: "Okay, so here's the deal...",
+// Structural scaffolding only — headings the kid fills in under, never
+// generated prose, consistent with the app's "no AI writes for him" rule.
+// Seeded once into a brand-new draft's editor content (see
+// ngAfterViewInit); 'freeform' intentionally has no entry — a clean slate
+// with just the placeholder ghost text below.
+const STYLE_TEMPLATES: Partial<Record<WritingStyle, string>> = {
+  documentary: '## What is it?\n\n\n## Why does it happen?\n\n\n## One fact that surprised me\n\n',
+  story: '## The situation\n\n\n## What happened\n\n\n## How it turned out\n\n',
+  fun_casual: '## The wildest part\n\n\n## My take\n\n',
 };
 
 @Component({
@@ -64,7 +67,16 @@ const STYLE_PLACEHOLDERS: Record<WritingStyle, string> = {
             />
           </label>
 
-          <div #editorEl class="markdown-content rounded-xl border border-cloud px-4 py-3 min-h-[16rem] mt-4 focus-within:border-moss transition-colors"></div>
+          <div class="flex flex-wrap gap-1 rounded-t-xl border border-cloud border-b-0 px-3 py-2 bg-paper mt-4">
+            <button type="button" (click)="toggleBold()" [class]="markClass('bold')">B</button>
+            <button type="button" (click)="toggleItalic()" [class]="markClass('italic')">I</button>
+            <button type="button" (click)="toggleHeading(2)" [class]="markClass('heading2')">H2</button>
+            <button type="button" (click)="toggleHeading(3)" [class]="markClass('heading3')">H3</button>
+            <button type="button" (click)="toggleBulletList()" [class]="markClass('bulletList')">&bull; List</button>
+            <button type="button" (click)="toggleOrderedList()" [class]="markClass('orderedList')">1. List</button>
+            <button type="button" (click)="toggleBlockquote()" [class]="markClass('blockquote')">Quote</button>
+          </div>
+          <div #editorEl class="markdown-content rounded-b-xl border border-cloud px-4 py-3 min-h-[16rem] focus-within:border-moss transition-colors"></div>
 
           <button
             type="button"
@@ -105,6 +117,8 @@ export default class WritingStudioComponent implements AfterViewInit, OnDestroy 
   readonly copied = signal(false);
   readonly error = signal<string | null>(null);
 
+  private readonly activeMarks = signal<Set<string>>(new Set());
+
   private topicId: string | null = null;
   private editor!: Editor;
   private autosaveTimer?: ReturnType<typeof setTimeout>;
@@ -124,19 +138,83 @@ export default class WritingStudioComponent implements AfterViewInit, OnDestroy 
       this.noteBody.set(note.body);
     }
 
-    const placeholder = post.style ? STYLE_PLACEHOLDERS[post.style] : 'Start writing...';
+    // A template is only ever seeded into a brand-new, still-empty draft —
+    // re-opening a draft the kid has already started writing in never
+    // overwrites their work with the template again.
+    const hasExistingContent = !!post.content_markdown?.trim();
+    const initialContent = hasExistingContent
+      ? post.content_markdown
+      : post.style
+        ? (STYLE_TEMPLATES[post.style] ?? '')
+        : '';
+
     this.editor = new Editor({
       element: this.editorEl()!.nativeElement,
-      extensions: [StarterKit, Markdown, Placeholder.configure({ placeholder })],
-      content: post.content_markdown,
+      extensions: [StarterKit, Markdown, Placeholder.configure({ placeholder: FREEFORM_PLACEHOLDER })],
+      content: initialContent,
       contentType: 'markdown',
-      onUpdate: () => this.scheduleAutosave(),
+      onUpdate: () => {
+        this.syncActiveMarks();
+        this.scheduleAutosave();
+      },
+      onSelectionUpdate: () => this.syncActiveMarks(),
     });
+    this.syncActiveMarks();
   }
 
   ngOnDestroy(): void {
     if (this.autosaveTimer) clearTimeout(this.autosaveTimer);
     this.editor?.destroy();
+  }
+
+  private syncActiveMarks(): void {
+    // Seeding non-trivial initial content (a style template) can trigger a
+    // plugin-driven transaction dispatch synchronously during `new Editor(...)`
+    // itself — before the constructor call has returned and been assigned to
+    // `this.editor` — so `onUpdate` can fire once with `this.editor` still
+    // undefined. An empty editor (freeform / editing existing content) never
+    // hits this, only the template-seeding path does.
+    if (!this.editor) return;
+    const active = new Set<string>();
+    if (this.editor.isActive('bold')) active.add('bold');
+    if (this.editor.isActive('italic')) active.add('italic');
+    if (this.editor.isActive('heading', { level: 2 })) active.add('heading2');
+    if (this.editor.isActive('heading', { level: 3 })) active.add('heading3');
+    if (this.editor.isActive('bulletList')) active.add('bulletList');
+    if (this.editor.isActive('orderedList')) active.add('orderedList');
+    if (this.editor.isActive('blockquote')) active.add('blockquote');
+    this.activeMarks.set(active);
+  }
+
+  markClass(name: string): string {
+    const active = this.activeMarks().has(name);
+    return active
+      ? 'rounded-lg bg-moss/10 px-2.5 py-1.5 text-sm font-medium text-moss-dark'
+      : 'rounded-lg px-2.5 py-1.5 text-sm text-muted hover:bg-cloud hover:text-ink transition-colors';
+  }
+
+  toggleBold(): void {
+    this.editor.chain().focus().toggleBold().run();
+  }
+
+  toggleItalic(): void {
+    this.editor.chain().focus().toggleItalic().run();
+  }
+
+  toggleHeading(level: 2 | 3): void {
+    this.editor.chain().focus().toggleHeading({ level }).run();
+  }
+
+  toggleBulletList(): void {
+    this.editor.chain().focus().toggleBulletList().run();
+  }
+
+  toggleOrderedList(): void {
+    this.editor.chain().focus().toggleOrderedList().run();
+  }
+
+  toggleBlockquote(): void {
+    this.editor.chain().focus().toggleBlockquote().run();
   }
 
   onTitleInput(value: string): void {
