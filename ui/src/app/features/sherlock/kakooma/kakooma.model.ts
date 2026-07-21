@@ -14,6 +14,12 @@ export interface KakoomaPuzzle {
 
 export const KAKOOMA_OPERATIONS: KakoomaOperation[] = ['add', 'subtract', 'multiply', 'divide'];
 
+export const KAKOOMA_GAME_ID_PREFIX = 'kakooma-';
+
+export function isKakoomaGameId(gameId: string): boolean {
+  return gameId.startsWith(KAKOOMA_GAME_ID_PREFIX);
+}
+
 export const KAKOOMA_OPERATION_LABELS: Record<KakoomaOperation, string> = {
   add: 'Addition',
   subtract: 'Subtraction',

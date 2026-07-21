@@ -5,6 +5,7 @@ import { BlogService } from '../../core/services/blog.service';
 import { ProgressService } from '../../core/services/progress.service';
 import { ProfileService } from '../../core/services/profile.service';
 import { PuzzleProgressService } from '../../core/services/puzzle-progress.service';
+import { isKakoomaGameId } from '../sherlock/kakooma/kakooma.model';
 
 @Component({
   selector: 'app-dashboard',
@@ -48,17 +49,17 @@ import { PuzzleProgressService } from '../../core/services/puzzle-progress.servi
     <section class="mt-10">
       <h2 class="font-display text-xl">Sherlock Holmes</h2>
 
-      @if (puzzlesAttempted() === 0) {
+      @if (sherlockSummary().totalAttempts === 0) {
         <p class="text-muted mt-4">No puzzles attempted yet.</p>
       } @else {
         <div class="flex flex-wrap gap-4 mt-4">
           <div class="rounded-2xl border border-cloud bg-white shadow-sm p-5">
             <p class="text-xs text-muted font-mono">Puzzles attempted</p>
-            <p class="font-display text-3xl text-ink mt-1">{{ puzzlesAttempted() }}</p>
+            <p class="font-display text-3xl text-ink mt-1">{{ sherlockSummary().totalAttempts }}</p>
           </div>
           <div class="rounded-2xl border border-cloud bg-white shadow-sm p-5">
             <p class="text-xs text-muted font-mono">This week</p>
-            <p class="font-display text-3xl text-ink mt-1">{{ puzzlesAttemptedThisWeek() }}</p>
+            <p class="font-display text-3xl text-ink mt-1">{{ sherlockSummary().attemptsThisWeek }}</p>
           </div>
         </div>
       }
@@ -82,11 +83,5 @@ export default class DashboardComponent {
   readonly publishedCount = computed(() => this.publishedPosts().length);
   readonly recentPosts = computed(() => this.publishedPosts().slice(0, 3));
 
-  private readonly puzzleStats = computed(() => this.puzzleProgress.stats() ?? []);
-  readonly puzzlesAttempted = computed(() =>
-    this.puzzleStats().reduce((sum, s) => sum + s.total_attempts, 0)
-  );
-  readonly puzzlesAttemptedThisWeek = computed(() =>
-    this.puzzleStats().reduce((sum, s) => sum + s.attempts_this_week, 0)
-  );
+  readonly sherlockSummary = this.puzzleProgress.roomStats(isKakoomaGameId);
 }
