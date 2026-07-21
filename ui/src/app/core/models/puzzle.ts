@@ -27,6 +27,10 @@ export interface AttemptCreate {
   completed_at: string;
   time_taken_ms: number;
   correct: boolean;
+  // Set to practice an already-passed tier without touching real
+  // progression — must be strictly earlier than the current tier,
+  // enforced server-side. See api/app/services/puzzle_service.py.
+  practice_tier?: PuzzleTier;
 }
 
 export interface AttemptOut {
@@ -58,4 +62,13 @@ export interface GameStats {
   attempts_this_week: number;
   total_time_ms: number;
   last_attempt_at: string | null;
+}
+
+// Per-tier breakdown for one game — the one deliberate exception to "no
+// best time anywhere": fastest_time_ms is strictly self-referential (never
+// compared to anyone else). See api/app/schemas/puzzle.py's TierStatsOut.
+export interface TierStats {
+  tier: PuzzleTier;
+  attempts: number;
+  fastest_time_ms: number | null;
 }

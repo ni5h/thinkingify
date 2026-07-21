@@ -165,12 +165,20 @@ export class KakoomaEngine implements PuzzleGame<KakoomaPuzzle, number> {
     if (!triple) return null;
     const { a, b, target } = triple;
 
-    const distractorMax = Math.max(max, target, a, b);
+    // Distractors must straddle target, not just cap out at it — target
+    // (the sum/product) is mathematically almost always the largest of the
+    // three numbers for add/multiply, so sampling only up to target left
+    // "tap the biggest number" working as a reliable shortcut. Widening the
+    // range symmetrically around target gives distractors a real chance of
+    // landing above it too.
+    const spread = Math.max(max - min, 1);
+    const distractorMin = Math.max(1, target - spread);
+    const distractorMax = target + spread;
     const used = new Set([a, b, target]);
     const distractors: number[] = [];
 
     while (distractors.length < shape.groupSize - 3) {
-      const candidate = randomInt(min, distractorMax);
+      const candidate = randomInt(distractorMin, distractorMax);
       if (used.has(candidate)) continue;
       used.add(candidate);
       distractors.push(candidate);

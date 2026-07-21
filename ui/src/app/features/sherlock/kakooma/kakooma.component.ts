@@ -1,7 +1,7 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { PuzzleProgressService } from '../../../core/services/puzzle-progress.service';
-import { PuzzleTier, tierLabel } from '../../../core/models/puzzle';
+import { PUZZLE_TIERS, PuzzleTier, tierLabel } from '../../../core/models/puzzle';
 import { StorageService } from '../../../core/services/storage.service';
 import { FeedbackState } from '../shared/feedback-toast.component';
 import { GameShellComponent } from '../shared/game-shell.component';
@@ -23,6 +23,17 @@ function isKakoomaOperation(value: string | null): value is KakoomaOperation {
 function formatTimePracticed(totalMs: number): string {
   const minutes = Math.round(totalMs / 60_000);
   return minutes < 1 ? 'under a minute' : `${minutes} min`;
+}
+
+function formatFastest(ms: number | null): string {
+  return ms === null ? '—' : `${(ms / 1000).toFixed(1)}s`;
+}
+
+interface TierRow {
+  tier: PuzzleTier;
+  label: string;
+  attempts: number;
+  fastestLabel: string;
 }
 
 @Component({
@@ -71,6 +82,42 @@ function formatTimePracticed(totalMs: number): string {
         @if (tierAdvancedMessage()) {
           <p class="text-center text-moss-dark font-medium mt-4">{{ tierAdvancedMessage() }}</p>
         }
+        @if (fasterMessage()) {
+          <p class="text-center text-moss-dark font-medium mt-4">{{ fasterMessage() }}</p>
+        }
+      }
+
+      @if (practiceTier()) {
+        <div class="text-center mt-4">
+          <button
+            type="button"
+            class="rounded-xl border border-cloud bg-paper px-5 py-2.5 text-sm font-medium text-ink hover:border-moss hover:bg-cloud/60 transition-colors"
+            (click)="exitPractice()"
+          >
+            Back to {{ tierLabel(tier()) }}
+          </button>
+        </div>
+      } @else if (tierRows().length && isAnswering()) {
+        <div class="mt-6 rounded-2xl border border-cloud bg-white shadow-sm p-4 max-w-xl mx-auto">
+          <p class="text-xs font-medium text-muted mb-3">Your times by tier</p>
+          <ul class="space-y-2">
+            @for (row of tierRows(); track row.tier) {
+              <li class="flex items-center justify-between text-sm">
+                <span class="text-ink">{{ row.label }}</span>
+                <span class="font-mono text-muted">{{ row.fastestLabel }}</span>
+                @if (row.tier !== tier()) {
+                  <button
+                    type="button"
+                    class="rounded-lg px-2 py-1 text-xs font-medium text-moss hover:bg-moss/10 transition-colors"
+                    (click)="enterPractice(row.tier)"
+                  >
+                    Practice
+                  </button>
+                }
+              </li>
+            }
+          </ul>
+        </div>
       }
     </div>
   `,
@@ -84,6 +131,7 @@ export default class KakoomaComponent {
   private readonly operation: KakoomaOperation;
   private readonly engine: KakoomaEngine;
   private readonly progress;
+  private readonly tierStats;
 
   readonly gameTitle = computed(() => `Kakooma — ${KAKOOMA_OPERATION_LABELS[this.operation]}`);
   readonly verb = computed(() => KAKOOMA_OPERATION_VERBS[this.operation]);
@@ -95,12 +143,37 @@ export default class KakoomaComponent {
 
   readonly tier = signal<PuzzleTier>('trial');
   readonly variationsCompleted = signal(0);
-  readonly tierLabelText = computed(() => tierLabel(this.tier()));
+
+  // Practicing an earlier tier is a separate mode that never touches real
+  // progression (tier/variationsCompleted above) — see kakooma_service's
+  // record_attempt on the backend for the enforcement side of this.
+  readonly practiceTier = signal<PuzzleTier | null>(null);
+  readonly activeTier = computed(() => this.practiceTier() ?? this.tier());
+  readonly tierLabelText = computed(() =>
+    this.practiceTier() ? `Practicing: ${tierLabel(this.practiceTier()!)}` : tierLabel(this.tier())
+  );
+
+  readonly tierLabel = tierLabel;
+
+  readonly tierRows = computed<TierRow[]>(() => {
+    const statsByTier = new Map((this.tierStats.value() ?? []).map((s) => [s.tier, s]));
+    const currentIndex = PUZZLE_TIERS.indexOf(this.tier());
+    return PUZZLE_TIERS.filter((_, i) => i <= currentIndex).map((t) => {
+      const stats = statsByTier.get(t);
+      return {
+        tier: t,
+        label: tierLabel(t),
+        attempts: stats?.attempts ?? 0,
+        fastestLabel: formatFastest(stats?.fastest_time_ms ?? null),
+      };
+    });
+  });
 
   readonly streak = signal(0);
   readonly feedback = signal<FeedbackState>(null);
   readonly puzzle = signal<KakoomaPuzzle | null>(null);
   readonly tierAdvancedMessage = signal<string | null>(null);
+  readonly fasterMessage = signal<string | null>(null);
   readonly isAnswering = computed(() => this.feedback() === null);
 
   private startedAt = 0;
@@ -116,6 +189,7 @@ export default class KakoomaComponent {
     }
     this.engine = new KakoomaEngine(this.operation);
     this.progress = this.puzzleProgress.progressResource(this.engine.gameId);
+    this.tierStats = this.puzzleProgress.tierStatsResource(this.engine.gameId);
 
     effect(() => {
       const value = this.progress.value();
@@ -129,8 +203,19 @@ export default class KakoomaComponent {
   }
 
   private startNewPuzzle(): void {
-    this.puzzle.set(this.engine.generate(this.tier()));
+    this.puzzle.set(this.engine.generate(this.activeTier()));
     this.startedAt = Date.now();
+  }
+
+  enterPractice(tier: PuzzleTier): void {
+    if (tier === this.tier()) return;
+    this.practiceTier.set(tier);
+    this.startNewPuzzle();
+  }
+
+  exitPractice(): void {
+    this.practiceTier.set(null);
+    this.startNewPuzzle();
   }
 
   async select(index: number): Promise<void> {
@@ -141,9 +226,14 @@ export default class KakoomaComponent {
     const startedAtIso = new Date(this.startedAt).toISOString();
     const completedAt = new Date();
     const timeTakenMs = completedAt.getTime() - this.startedAt;
+    const practicing = this.practiceTier();
 
     this.feedback.set(correct ? 'correct' : 'incorrect');
     this.streak.set(correct ? this.streak() + 1 : 0);
+
+    const previousFastest = practicing
+      ? ((this.tierStats.value() ?? []).find((s) => s.tier === practicing)?.fastest_time_ms ?? null)
+      : null;
 
     try {
       const result = await this.puzzleProgress.recordAttempt(this.engine.gameId, {
@@ -151,12 +241,21 @@ export default class KakoomaComponent {
         completed_at: completedAt.toISOString(),
         time_taken_ms: timeTakenMs,
         correct,
+        practice_tier: practicing ?? undefined,
       });
-      this.tier.set(result.progress.current_tier);
-      this.variationsCompleted.set(result.progress.variations_completed);
-      if (result.tier_advanced) {
-        this.tierAdvancedMessage.set(`You unlocked ${tierLabel(result.progress.current_tier)}!`);
+
+      if (practicing) {
+        if (correct && previousFastest !== null && timeTakenMs < previousFastest) {
+          this.fasterMessage.set('Faster than before!');
+        }
+      } else {
+        this.tier.set(result.progress.current_tier);
+        this.variationsCompleted.set(result.progress.variations_completed);
+        if (result.tier_advanced) {
+          this.tierAdvancedMessage.set(`You unlocked ${tierLabel(result.progress.current_tier)}!`);
+        }
       }
+      this.tierStats.reload();
       this.storage.recordActivityToday();
     } catch {
       // Network hiccup — local feedback still shown; the next attempt retries.
@@ -165,6 +264,7 @@ export default class KakoomaComponent {
     setTimeout(() => {
       this.feedback.set(null);
       this.tierAdvancedMessage.set(null);
+      this.fasterMessage.set(null);
       this.startNewPuzzle();
     }, FEEDBACK_DELAY_MS);
   }

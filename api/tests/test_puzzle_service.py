@@ -266,3 +266,203 @@ def test_stats_endpoint_returns_own_stats(client, learner_user):
     assert len(body) == 1
     assert body[0]["game_id"] == "kakooma-add"
     assert body[0]["total_attempts"] == 1
+
+
+def _practice_attempt(tier: PuzzleTier, time_taken_ms: int, correct: bool = True) -> AttemptCreate:
+    started = datetime.now(UTC)
+    return AttemptCreate(
+        started_at=started,
+        completed_at=started + timedelta(milliseconds=time_taken_ms),
+        time_taken_ms=time_taken_ms,
+        correct=correct,
+        practice_tier=tier,
+    )
+
+
+async def test_practice_attempt_does_not_touch_progression(db, learner_user, game_id):
+    # Advance to intermediate so trial/beginner are both practice-able.
+    for _ in range(20):
+        await puzzle_service.record_attempt(
+            db, learner_user, game_id, _attempt(time_taken_ms=5_000, correct=True)
+        )
+    before = await puzzle_service.get_or_create_progress(db, learner_user, game_id)
+    assert before.current_tier == PuzzleTier.intermediate
+
+    attempt, progress, tier_advanced = await puzzle_service.record_attempt(
+        db, learner_user, game_id, _practice_attempt(PuzzleTier.trial, time_taken_ms=1_000, correct=True)
+    )
+
+    assert attempt.tier == PuzzleTier.trial
+    assert attempt.variation_index == 0
+    assert tier_advanced is False
+    assert progress.current_tier == PuzzleTier.intermediate
+    assert progress.variations_completed == before.variations_completed
+    assert progress.highest_tier_unlocked == before.highest_tier_unlocked
+
+
+@pytest.mark.parametrize(
+    "practice_tier", [PuzzleTier.trial, PuzzleTier.beginner, PuzzleTier.intermediate, PuzzleTier.advanced]
+)
+async def test_practice_attempt_never_advances_regardless_of_tier(db, learner_user, game_id, practice_tier):
+    for _ in range(50):
+        await puzzle_service.record_attempt(
+            db, learner_user, game_id, _attempt(time_taken_ms=5_000, correct=True)
+        )
+    before = await puzzle_service.get_or_create_progress(db, learner_user, game_id)
+    assert before.current_tier == PuzzleTier.pro
+
+    for _ in range(10):
+        _, progress, tier_advanced = await puzzle_service.record_attempt(
+            db, learner_user, game_id, _practice_attempt(practice_tier, time_taken_ms=1_000, correct=True)
+        )
+    assert tier_advanced is False
+    assert progress.current_tier == PuzzleTier.pro
+    assert progress.variations_completed == before.variations_completed
+
+
+async def test_practice_tier_equal_to_current_tier_rejected(db, learner_user, game_id):
+    with pytest.raises(HTTPException) as exc_info:
+        await puzzle_service.record_attempt(
+            db, learner_user, game_id, _practice_attempt(PuzzleTier.trial, time_taken_ms=1_000, correct=True)
+        )
+    assert exc_info.value.status_code == 400
+
+
+async def test_practice_tier_ahead_of_current_tier_rejected(db, learner_user, game_id):
+    with pytest.raises(HTTPException) as exc_info:
+        await puzzle_service.record_attempt(
+            db, learner_user, game_id, _practice_attempt(PuzzleTier.pro, time_taken_ms=1_000, correct=True)
+        )
+    assert exc_info.value.status_code == 400
+
+
+async def test_practice_attempt_still_recorded_in_attempt_log(db, learner_user, game_id):
+    for _ in range(10):
+        await puzzle_service.record_attempt(
+            db, learner_user, game_id, _attempt(time_taken_ms=5_000, correct=True)
+        )
+    await puzzle_service.record_attempt(
+        db, learner_user, game_id, _practice_attempt(PuzzleTier.trial, time_taken_ms=1_000, correct=True)
+    )
+
+    from sqlalchemy import select
+
+    from app.models.puzzle import PuzzleAttempt
+
+    result = await db.execute(
+        select(PuzzleAttempt).where(PuzzleAttempt.user_id == learner_user.id, PuzzleAttempt.game_id == game_id)
+    )
+    attempts = result.scalars().all()
+    assert len(attempts) == 11
+
+
+async def test_get_tier_stats_empty_when_no_attempts(db, learner_user, game_id):
+    stats = await puzzle_service.get_tier_stats(db, learner_user, game_id)
+    assert stats == []
+
+
+async def test_get_tier_stats_groups_by_tier(db, learner_user, game_id):
+    # All 10 attempts land in the trial bucket — the tier only advances
+    # to beginner *after* the 10th attempt is recorded.
+    for _ in range(10):
+        await puzzle_service.record_attempt(
+            db, learner_user, game_id, _attempt(time_taken_ms=5_000, correct=True)
+        )
+    # One attempt at the now-current beginner tier.
+    await puzzle_service.record_attempt(
+        db, learner_user, game_id, _attempt(time_taken_ms=5_000, correct=True)
+    )
+    # A practice attempt back at trial should land in the trial bucket, not beginner's.
+    await puzzle_service.record_attempt(
+        db, learner_user, game_id, _practice_attempt(PuzzleTier.trial, time_taken_ms=2_000, correct=True)
+    )
+
+    stats = {s.tier: s for s in await puzzle_service.get_tier_stats(db, learner_user, game_id)}
+
+    assert stats[PuzzleTier.trial].attempts == 11
+    assert stats[PuzzleTier.beginner].attempts == 1
+
+
+async def test_get_tier_stats_fastest_time_only_counts_correct_attempts(db, learner_user, game_id):
+    await puzzle_service.record_attempt(
+        db, learner_user, game_id, _attempt(time_taken_ms=99_000, correct=False)
+    )
+    await puzzle_service.record_attempt(
+        db, learner_user, game_id, _attempt(time_taken_ms=10_000, correct=True)
+    )
+    await puzzle_service.record_attempt(
+        db, learner_user, game_id, _attempt(time_taken_ms=15_000, correct=True)
+    )
+
+    stats = {s.tier: s for s in await puzzle_service.get_tier_stats(db, learner_user, game_id)}
+    trial_stats = stats[PuzzleTier.trial]
+    assert trial_stats.attempts == 3
+    assert trial_stats.fastest_time_ms == 10_000
+
+
+async def test_get_tier_stats_fastest_time_none_when_all_incorrect(db, learner_user, game_id):
+    await puzzle_service.record_attempt(
+        db, learner_user, game_id, _attempt(time_taken_ms=1_000, correct=False)
+    )
+    stats = {s.tier: s for s in await puzzle_service.get_tier_stats(db, learner_user, game_id)}
+    assert stats[PuzzleTier.trial].fastest_time_ms is None
+
+
+async def test_get_tier_stats_scoped_to_requesting_user_only(db, learner_user, admin_user, game_id):
+    await puzzle_service.record_attempt(
+        db, learner_user, game_id, _attempt(time_taken_ms=5_000, correct=True)
+    )
+    await puzzle_service.record_attempt(
+        db, admin_user, game_id, _attempt(time_taken_ms=5_000, correct=True)
+    )
+
+    learner_stats = {s.tier: s for s in await puzzle_service.get_tier_stats(db, learner_user, game_id)}
+    assert learner_stats[PuzzleTier.trial].attempts == 1
+
+
+def test_tier_stats_endpoint_requires_authentication(client):
+    response = client.get("/api/v1/puzzles/kakooma-add/tier-stats")
+    assert response.status_code in (401, 403)
+
+
+def test_tier_stats_endpoint_returns_own_stats(client, learner_user):
+    from app.core.security import create_access_token
+
+    token = create_access_token(str(learner_user.id), email=learner_user.email, name=learner_user.name, role="learner")
+    create_resp = client.post(
+        "/api/v1/puzzles/kakooma-add/attempts",
+        json={
+            "started_at": datetime.now(UTC).isoformat(),
+            "completed_at": datetime.now(UTC).isoformat(),
+            "time_taken_ms": 5000,
+            "correct": True,
+        },
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert create_resp.status_code == 201
+
+    response = client.get("/api/v1/puzzles/kakooma-add/tier-stats", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body) == 1
+    assert body[0]["tier"] == "trial"
+    assert body[0]["attempts"] == 1
+    assert body[0]["fastest_time_ms"] == 5000
+
+
+def test_practice_attempt_endpoint_rejects_tier_at_or_above_current(client, learner_user):
+    from app.core.security import create_access_token
+
+    token = create_access_token(str(learner_user.id), email=learner_user.email, name=learner_user.name, role="learner")
+    response = client.post(
+        "/api/v1/puzzles/kakooma-add/attempts",
+        json={
+            "started_at": datetime.now(UTC).isoformat(),
+            "completed_at": datetime.now(UTC).isoformat(),
+            "time_taken_ms": 1000,
+            "correct": True,
+            "practice_tier": "trial",
+        },
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 400

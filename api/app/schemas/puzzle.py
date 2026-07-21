@@ -24,6 +24,10 @@ class AttemptCreate(BaseModel):
     completed_at: datetime
     time_taken_ms: int
     correct: bool
+    # Set to practice an already-passed tier without touching real
+    # progression — see puzzle_service.record_attempt. Must be strictly
+    # earlier than the caller's current_tier, enforced server-side.
+    practice_tier: PuzzleTier | None = None
 
 
 class AttemptOut(BaseModel):
@@ -58,3 +62,14 @@ class GameStatsOut(BaseModel):
     attempts_this_week: int  # rolling 7 days, not calendar week
     total_time_ms: int
     last_attempt_at: datetime | None
+
+
+class TierStatsOut(BaseModel):
+    """Per-tier breakdown for one game — the one deliberate exception to
+    "no best time anywhere": fastest_time_ms is strictly self-referential
+    (never compared to anyone else), and exists specifically so a practice
+    attempt at an earlier tier can show whether it actually helped."""
+
+    tier: PuzzleTier
+    attempts: int
+    fastest_time_ms: int | None  # None until at least one correct attempt

@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, httpResource } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
-import { AttemptCreate, AttemptResult, GameProgress, GameStats } from '../models/puzzle';
+import { AttemptCreate, AttemptResult, GameProgress, GameStats, TierStats } from '../models/puzzle';
 import { AuthService } from './auth.service';
 
 /**
@@ -29,6 +29,10 @@ export class PuzzleProgressService {
 
   progressResource(gameId: string) {
     return httpResource<GameProgress>(() => `/api/v1/puzzles/${gameId}/progress`);
+  }
+
+  tierStatsResource(gameId: string) {
+    return httpResource<TierStats[]>(() => `/api/v1/puzzles/${gameId}/tier-stats`);
   }
 
   async recordAttempt(gameId: string, attempt: AttemptCreate): Promise<AttemptResult> {

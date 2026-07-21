@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.models.user import User
-from app.schemas.puzzle import AttemptCreate, AttemptResultOut, GameProgressOut, GameStatsOut
+from app.schemas.puzzle import AttemptCreate, AttemptResultOut, GameProgressOut, GameStatsOut, TierStatsOut
 from app.services import puzzle_service
 
 router = APIRouter(prefix="/puzzles", tags=["puzzles"])
@@ -18,6 +18,15 @@ async def get_stats(
     current_user: Annotated[User, Depends(get_current_user)],
 ):
     return await puzzle_service.get_stats_for_user(db, current_user)
+
+
+@router.get("/{game_id}/tier-stats", response_model=list[TierStatsOut])
+async def get_tier_stats(
+    game_id: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    return await puzzle_service.get_tier_stats(db, current_user, game_id)
 
 
 @router.get("/{game_id}/progress", response_model=GameProgressOut)
