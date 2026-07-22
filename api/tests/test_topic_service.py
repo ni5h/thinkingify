@@ -6,8 +6,12 @@ from app.schemas.topic import TopicCreate, TopicUpdate
 from app.services import topic_service
 
 
-async def _make_topic(db, admin, title: str = "Why Seasons Happen"):
-    return await topic_service.create(db, admin, TopicCreate(title=title, explainer_markdown="body"))
+async def _make_topic(
+    db, admin, title: str = "Why Seasons Happen", audio_url: str | None = "https://cdn.test/audio.mp3"
+):
+    return await topic_service.create(
+        db, admin, TopicCreate(title=title, explainer_markdown="body", audio_url=audio_url)
+    )
 
 
 async def test_create_generates_slug_and_defaults_to_draft(db, admin_user):
@@ -41,6 +45,19 @@ async def test_illegal_transition_raises_409(db, admin_user):
     assert exc_info.value.status_code == 409
 
 
+async def test_publish_without_audio_raises_400(db, admin_user):
+    topic = await _make_topic(db, admin_user, audio_url=None)
+    with pytest.raises(HTTPException) as exc_info:
+        await topic_service.transition(db, topic, "publish")
+    assert exc_info.value.status_code == 400
+
+
+async def test_publish_with_audio_succeeds(db, admin_user):
+    topic = await _make_topic(db, admin_user, audio_url="https://cdn.test/audio.mp3")
+    published = await topic_service.transition(db, topic, "publish")
+    assert published.status == TopicStatus.published
+
+
 async def test_update_partial_fields(db, admin_user):
     topic = await _make_topic(db, admin_user)
     updated = await topic_service.update(db, topic, TopicUpdate(order_index=5))
@@ -49,8 +66,12 @@ async def test_update_partial_fields(db, admin_user):
 
 
 async def test_list_published_ordered_by_order_index(db, admin_user):
-    a = await topic_service.create(db, admin_user, TopicCreate(title="A", order_index=2))
-    b = await topic_service.create(db, admin_user, TopicCreate(title="B", order_index=1))
+    a = await topic_service.create(
+        db, admin_user, TopicCreate(title="A", order_index=2, audio_url="https://cdn.test/a.mp3")
+    )
+    b = await topic_service.create(
+        db, admin_user, TopicCreate(title="B", order_index=1, audio_url="https://cdn.test/b.mp3")
+    )
     await topic_service.transition(db, a, "publish")
     await topic_service.transition(db, b, "publish")
 
@@ -115,7 +136,9 @@ def test_topic_mutation_endpoints_reject_unauthenticated(client):
 def test_topic_owner_can_update_publish_unpublish_delete(client, admin_user):
     token = _token_for(admin_user, "admin")
     create_resp = client.post(
-        "/api/v1/topics", json={"title": "Owned Topic"}, headers={"Authorization": f"Bearer {token}"}
+        "/api/v1/topics",
+        json={"title": "Owned Topic", "audio_url": "https://cdn.test/audio.mp3"},
+        headers={"Authorization": f"Bearer {token}"},
     )
     topic_id = create_resp.json()["id"]
 
@@ -136,6 +159,19 @@ def test_topic_owner_can_update_publish_unpublish_delete(client, admin_user):
 
     delete_resp = client.delete(f"/api/v1/topics/{topic_id}", headers={"Authorization": f"Bearer {token}"})
     assert delete_resp.status_code == 204
+
+
+def test_publish_endpoint_rejects_topic_with_no_audio(client, admin_user):
+    token = _token_for(admin_user, "admin")
+    create_resp = client.post(
+        "/api/v1/topics", json={"title": "No Audio Yet"}, headers={"Authorization": f"Bearer {token}"}
+    )
+    topic_id = create_resp.json()["id"]
+
+    publish_resp = client.post(
+        f"/api/v1/topics/{topic_id}/publish", headers={"Authorization": f"Bearer {token}"}
+    )
+    assert publish_resp.status_code == 400
 
 
 def test_non_owner_cannot_update_publish_unpublish_delete(client, admin_user, learner_user):

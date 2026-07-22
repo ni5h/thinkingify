@@ -19,7 +19,7 @@ function formatTime(seconds: number): string {
   standalone: true,
   imports: [IconComponent],
   template: `
-    <div class="rounded-2xl border border-cloud bg-white shadow-sm p-4 flex items-center gap-4">
+    <div [class]="cardClass()">
       <audio
         #audioEl
         [src]="src"
@@ -33,9 +33,9 @@ function formatTime(seconds: number): string {
         type="button"
         (click)="togglePlay(audioEl)"
         [attr.aria-label]="playing() ? 'Pause' : 'Play'"
-        class="shrink-0 flex items-center justify-center h-11 w-11 rounded-full bg-moss text-white shadow-sm hover:bg-moss-dark transition-colors"
+        [class]="playButtonClass()"
       >
-        <app-icon [name]="playing() ? 'pause' : 'play'" [size]="18" />
+        <app-icon [name]="playing() ? 'pause' : 'play'" [size]="playIconSize()" />
       </button>
 
       <input
@@ -53,6 +53,10 @@ function formatTime(seconds: number): string {
 })
 export class AudioPlayerComponent {
   @Input({ required: true }) src!: string;
+  // 'large' is used where audio is the primary content on the page (the
+  // Topic Reader, now that audio is the lesson, not the hook text) —
+  // 'default' keeps today's compact sizing for any other context.
+  @Input() size: 'default' | 'large' = 'default';
 
   private readonly audioElRef = viewChild<ElementRef<HTMLAudioElement>>('audioEl');
 
@@ -62,6 +66,18 @@ export class AudioPlayerComponent {
 
   readonly elapsedLabel = computed(() => formatTime(this.currentTime()));
   readonly durationLabel = computed(() => formatTime(this.duration()));
+
+  readonly cardClass = computed(() =>
+    this.size === 'large'
+      ? 'rounded-2xl border border-cloud bg-white shadow-sm p-6 flex items-center gap-5'
+      : 'rounded-2xl border border-cloud bg-white shadow-sm p-4 flex items-center gap-4'
+  );
+  readonly playButtonClass = computed(() =>
+    this.size === 'large'
+      ? 'shrink-0 flex items-center justify-center h-16 w-16 rounded-full bg-moss text-white shadow-sm hover:bg-moss-dark transition-colors'
+      : 'shrink-0 flex items-center justify-center h-11 w-11 rounded-full bg-moss text-white shadow-sm hover:bg-moss-dark transition-colors'
+  );
+  readonly playIconSize = computed(() => (this.size === 'large' ? 26 : 18));
 
   togglePlay(audioEl: HTMLAudioElement): void {
     if (this.playing()) {

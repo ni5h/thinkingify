@@ -38,9 +38,17 @@ import { TopicListItem } from '../../../core/models/topic';
                   Edit
                 </a>
                 @if (topic.status === 'draft') {
-                  <button type="button" (click)="publish(topic.id)" class="rounded-lg bg-moss/10 px-3 py-1.5 text-sm font-medium text-moss-dark hover:bg-moss/20 transition-colors">
+                  <button
+                    type="button"
+                    (click)="publish(topic.id)"
+                    [disabled]="!topic.audio_url"
+                    class="rounded-lg bg-moss/10 px-3 py-1.5 text-sm font-medium text-moss-dark hover:bg-moss/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
                     Publish
                   </button>
+                  @if (!topic.audio_url) {
+                    <span class="text-xs text-muted self-center">needs audio</span>
+                  }
                 } @else {
                   <a [routerLink]="['/rowling/topics', topic.slug]" class="rounded-lg px-3 py-1.5 text-sm font-medium text-muted hover:bg-cloud/60 hover:text-ink transition-colors">
                     View live

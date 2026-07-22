@@ -62,6 +62,13 @@ async def transition(db: AsyncSession, topic: Topic, action: str) -> Topic:
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Cannot {action} from status '{topic.status.value}'.",
         )
+    # Audio is the actual lesson now (explainer_markdown is just a short
+    # curiosity hook) — a topic with no audio has nothing to teach.
+    if action == "publish" and not topic.audio_url:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Add narrated audio before publishing — audio is the lesson now.",
+        )
     topic.status = to_status
     if action == "publish" and topic.published_at is None:
         topic.published_at = datetime.now(UTC)
