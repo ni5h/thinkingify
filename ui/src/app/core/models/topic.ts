@@ -6,6 +6,7 @@ export interface TopicListItem {
   slug: string;
   explainer_markdown: string;
   audio_url: string | null;
+  themes: string[];
   status: TopicStatus;
   order_index: number;
   author_id: string;
@@ -21,5 +22,6 @@ export interface TopicDraft {
   title: string;
   explainer_markdown?: string;
   audio_url?: string;
+  themes?: string[];
   order_index?: number;
 }

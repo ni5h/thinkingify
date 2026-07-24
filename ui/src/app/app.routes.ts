@@ -33,6 +33,11 @@ export const routes: Routes = [
     canActivate: [sherlockAuthGuard],
   },
   {
+    path: 'rowling/themes/:slug',
+    loadComponent: () => import('./features/rowling/theme-topics/theme-topics.component'),
+    canActivate: [sherlockAuthGuard],
+  },
+  {
     path: 'rowling/topics/:slug/style',
     loadComponent: () => import('./features/rowling/style-chooser/style-chooser.component'),
     canActivate: [sherlockAuthGuard],
