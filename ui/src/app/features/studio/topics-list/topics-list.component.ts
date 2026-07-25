@@ -41,13 +41,21 @@ import { TopicListItem } from '../../../core/models/topic';
                   <button
                     type="button"
                     (click)="publish(topic.id)"
-                    [disabled]="!topic.audio_url"
+                    [disabled]="!topic.audio_url || topic.themes.length === 0"
                     class="rounded-lg bg-moss/10 px-3 py-1.5 text-sm font-medium text-moss-dark hover:bg-moss/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Publish
                   </button>
-                  @if (!topic.audio_url) {
-                    <span class="text-xs text-muted self-center">needs audio</span>
+                  @if (!topic.audio_url || topic.themes.length === 0) {
+                    <span class="text-xs text-muted self-center">
+                      @if (!topic.audio_url && topic.themes.length === 0) {
+                        needs audio + theme
+                      } @else if (!topic.audio_url) {
+                        needs audio
+                      } @else {
+                        needs theme
+                      }
+                    </span>
                   }
                 } @else {
                   <a [routerLink]="['/rowling/topics', topic.slug]" class="rounded-lg px-3 py-1.5 text-sm font-medium text-muted hover:bg-cloud/60 hover:text-ink transition-colors">

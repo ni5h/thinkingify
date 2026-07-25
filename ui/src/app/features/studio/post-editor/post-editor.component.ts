@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, OnDestroy, computed, inject, signal, viewChild } from '@angular/core';
+import { AfterViewInit, Component, HostListener, OnDestroy, computed, inject, signal, viewChild } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -8,6 +8,7 @@ import { Markdown } from '@tiptap/markdown';
 import { Placeholder } from '@tiptap/extension-placeholder';
 import { BlogService } from '../../../core/services/blog.service';
 import { resizeAndCompressImage } from '../../../core/utils/image';
+import { ContentStatus } from '../../../core/models/content';
 
 const AUTOSAVE_DELAY_MS = 3000;
 const WORDS_PER_MINUTE = 200;
@@ -28,7 +29,10 @@ const WORDS_PER_MINUTE = 200;
       }
     </div>
 
-    <div class="flex flex-col gap-5 mt-6">
+    <div [class]="maximized()
+      ? 'fixed inset-0 z-50 bg-paper overflow-y-auto p-6 md:p-10 flex flex-col gap-5'
+      : 'flex flex-col gap-5 mt-6'"
+    >
       <label class="flex flex-col gap-1">
         <span class="text-sm font-medium text-muted">Title</span>
         <input
@@ -71,7 +75,7 @@ const WORDS_PER_MINUTE = 200;
           <span class="text-xs text-muted font-mono">{{ wordCount() }} words &middot; {{ readingMinutes() }} min read</span>
         </div>
 
-        <div class="flex flex-wrap gap-1 rounded-t-xl border border-cloud border-b-0 px-3 py-2 bg-paper">
+        <div class="flex flex-wrap items-center gap-1 rounded-t-xl border border-cloud border-b-0 px-3 py-2 bg-paper">
           <button type="button" (click)="toggleBold()" [class]="markClass('bold')">B</button>
           <button type="button" (click)="toggleItalic()" [class]="markClass('italic')">I</button>
           <button type="button" (click)="toggleStrike()" [class]="markClass('strike')">S</button>
@@ -82,15 +86,35 @@ const WORDS_PER_MINUTE = 200;
           <button type="button" (click)="toggleBlockquote()" [class]="markClass('blockquote')">Quote</button>
           <button type="button" (click)="toggleCodeBlock()" [class]="markClass('codeBlock')">Code</button>
           <button type="button" (click)="setLink()" [class]="markClass('link')">Link</button>
+          <button
+            type="button"
+            (click)="toggleMaximized()"
+            class="ml-auto rounded-lg px-2.5 py-1.5 text-sm text-muted hover:bg-cloud hover:text-ink transition-colors"
+          >
+            {{ maximized() ? 'Exit fullscreen' : 'Fullscreen' }}
+          </button>
         </div>
 
         <div #editorEl class="markdown-content rounded-b-xl border border-cloud px-4 py-3 min-h-[16rem] focus-within:border-moss transition-colors"></div>
       </div>
 
-      <div class="flex gap-3 mt-2">
+      <div class="flex flex-wrap gap-3 mt-2">
         <button type="button" (click)="save()" [disabled]="saving()" class="rounded-xl bg-moss px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-moss-dark transition-colors disabled:opacity-60">
           {{ saving() ? 'Saving…' : 'Save' }}
         </button>
+        @if (postId && status() === 'draft') {
+          <button
+            type="button"
+            (click)="publish()"
+            [disabled]="publishing()"
+            class="rounded-xl border border-cloud bg-paper px-5 py-2.5 text-sm font-medium text-ink hover:border-moss hover:bg-cloud/60 transition-colors disabled:opacity-60"
+          >
+            {{ publishing() ? 'Publishing…' : 'Publish' }}
+          </button>
+        }
+        @if (postId && status() === 'published') {
+          <span class="self-center text-xs text-muted font-mono">Published</span>
+        }
         <a routerLink="/studio/posts" class="rounded-xl px-5 py-2.5 text-sm font-medium text-muted hover:bg-cloud/60 hover:text-ink transition-colors">
           Cancel
         </a>
@@ -117,10 +141,13 @@ export default class StudioPostEditorComponent implements AfterViewInit, OnDestr
   readonly featureImageUrl = signal<string | undefined>(undefined);
   readonly uploadingImage = signal(false);
   readonly saving = signal(false);
+  readonly publishing = signal(false);
+  readonly status = signal<ContentStatus>('draft');
   readonly error = signal<string | null>(null);
   readonly autosaveStatus = signal<string | null>(null);
 
   private readonly activeMarks = signal<Set<string>>(new Set());
+  readonly maximized = signal(false);
   readonly wordCount = signal(0);
   readonly readingMinutes = computed(() => Math.max(1, Math.ceil(this.wordCount() / WORDS_PER_MINUTE)));
 
@@ -136,6 +163,7 @@ export default class StudioPostEditorComponent implements AfterViewInit, OnDestr
         this.title.set(existing.title);
         this.summary.set(existing.summary ?? '');
         this.featureImageUrl.set(existing.feature_image_url ?? undefined);
+        this.status.set(existing.status);
         initialMarkdown = existing.content_markdown;
       }
     }
@@ -247,6 +275,15 @@ export default class StudioPostEditorComponent implements AfterViewInit, OnDestr
     this.editor.chain().focus().toggleCodeBlock().run();
   }
 
+  toggleMaximized(): void {
+    this.maximized.update((v) => !v);
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscapeKey(): void {
+    if (this.maximized()) this.maximized.set(false);
+  }
+
   setLink(): void {
     const previousUrl = this.editor.getAttributes('link')['href'] as string | undefined;
     const url = window.prompt('Link URL', previousUrl ?? 'https://');
@@ -300,6 +337,32 @@ export default class StudioPostEditorComponent implements AfterViewInit, OnDestr
     } catch {
       this.error.set('Could not save this post. Please try again.');
       this.saving.set(false);
+    }
+  }
+
+  // Self-publish, not the admin submit-for-review/publish workflow used
+  // elsewhere on this page's own posts-list — ownership-gated, no review
+  // step, same mechanism the Rowling Writing Studio already uses. This is
+  // what makes "Write your own" (which lands here) a complete, self-
+  // contained writing flow instead of a draft with no way to publish it.
+  async publish(): Promise<void> {
+    if (!this.postId) return;
+    this.publishing.set(true);
+    this.error.set(null);
+    try {
+      await this.blog.update(this.postId, {
+        title: this.title(),
+        summary: this.summary(),
+        content_markdown: this.editor.getMarkdown(),
+        feature_image_url: this.featureImageUrl(),
+      });
+      await this.blog.selfPublish(this.postId);
+      this.status.set('published');
+    } catch (err) {
+      const detail = (err as { error?: { detail?: string } })?.error?.detail;
+      this.error.set(detail ?? 'Could not publish this post. Please try again.');
+    } finally {
+      this.publishing.set(false);
     }
   }
 }

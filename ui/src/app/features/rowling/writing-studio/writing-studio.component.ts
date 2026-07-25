@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, OnDestroy, inject, signal, viewChild } from '@angular/core';
+import { AfterViewInit, Component, HostListener, OnDestroy, inject, signal, viewChild } from '@angular/core';
 import { RouterLink, ActivatedRoute } from '@angular/router';
 import { Editor } from '@tiptap/core';
 import { StarterKit } from '@tiptap/starter-kit';
@@ -56,7 +56,10 @@ const STYLE_TEMPLATES: Partial<Record<WritingStyle, string>> = {
       </div>
 
       <div class="md:flex md:gap-6 mt-6">
-        <div class="md:flex-1 min-w-0">
+        <div [class]="maximized()
+          ? 'fixed inset-0 z-50 bg-paper overflow-y-auto p-6 md:p-10'
+          : 'md:flex-1 min-w-0'"
+        >
           <label class="flex flex-col gap-1">
             <span class="text-sm font-medium text-muted">Title</span>
             <input
@@ -67,7 +70,7 @@ const STYLE_TEMPLATES: Partial<Record<WritingStyle, string>> = {
             />
           </label>
 
-          <div class="flex flex-wrap gap-1 rounded-t-xl border border-cloud border-b-0 px-3 py-2 bg-paper mt-4">
+          <div class="flex flex-wrap items-center gap-1 rounded-t-xl border border-cloud border-b-0 px-3 py-2 bg-paper mt-4">
             <button type="button" (click)="toggleBold()" [class]="markClass('bold')">B</button>
             <button type="button" (click)="toggleItalic()" [class]="markClass('italic')">I</button>
             <button type="button" (click)="toggleHeading(2)" [class]="markClass('heading2')">H2</button>
@@ -75,6 +78,13 @@ const STYLE_TEMPLATES: Partial<Record<WritingStyle, string>> = {
             <button type="button" (click)="toggleBulletList()" [class]="markClass('bulletList')">&bull; List</button>
             <button type="button" (click)="toggleOrderedList()" [class]="markClass('orderedList')">1. List</button>
             <button type="button" (click)="toggleBlockquote()" [class]="markClass('blockquote')">Quote</button>
+            <button
+              type="button"
+              (click)="toggleMaximized()"
+              class="ml-auto rounded-lg px-2.5 py-1.5 text-sm text-muted hover:bg-cloud hover:text-ink transition-colors"
+            >
+              {{ maximized() ? 'Exit fullscreen' : 'Fullscreen' }}
+            </button>
           </div>
           <div #editorEl class="markdown-content rounded-b-xl border border-cloud px-4 py-3 min-h-[16rem] focus-within:border-moss transition-colors"></div>
 
@@ -92,9 +102,11 @@ const STYLE_TEMPLATES: Partial<Record<WritingStyle, string>> = {
           }
         </div>
 
-        <aside class="md:w-80 shrink-0 mt-8 md:mt-0">
-          <app-notes-panel [body]="noteBody()" [status]="null" (bodyChange)="noteBody.set($event)" (blurred)="saveNote()" />
-        </aside>
+        @if (!maximized()) {
+          <aside class="md:w-80 shrink-0 mt-8 md:mt-0">
+            <app-notes-panel [body]="noteBody()" [status]="null" (bodyChange)="noteBody.set($event)" (blurred)="saveNote()" />
+          </aside>
+        }
       </div>
     }
   `,
@@ -118,6 +130,7 @@ export default class WritingStudioComponent implements AfterViewInit, OnDestroy 
   readonly error = signal<string | null>(null);
 
   private readonly activeMarks = signal<Set<string>>(new Set());
+  readonly maximized = signal(false);
 
   private topicId: string | null = null;
   private editor!: Editor;
@@ -215,6 +228,15 @@ export default class WritingStudioComponent implements AfterViewInit, OnDestroy 
 
   toggleBlockquote(): void {
     this.editor.chain().focus().toggleBlockquote().run();
+  }
+
+  toggleMaximized(): void {
+    this.maximized.update((v) => !v);
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscapeKey(): void {
+    if (this.maximized()) this.maximized.set(false);
   }
 
   onTitleInput(value: string): void {

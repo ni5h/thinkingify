@@ -8,6 +8,7 @@ import { Markdown } from '@tiptap/markdown';
 import { Placeholder } from '@tiptap/extension-placeholder';
 import { Image } from '@tiptap/extension-image';
 import { TopicService } from '../../../core/services/topic.service';
+import { TOPIC_THEMES } from '../../../core/models/theme';
 
 const AUTOSAVE_DELAY_MS = 3000;
 
@@ -59,6 +60,23 @@ const AUTOSAVE_DELAY_MS = 3000;
         }
       </label>
 
+      <div class="flex flex-col gap-2">
+        <span class="text-sm font-medium text-muted">Themes — at least one required to publish</span>
+        <div class="flex flex-wrap gap-2">
+          @for (theme of themeCatalog; track theme.slug) {
+            <button
+              type="button"
+              (click)="toggleTheme(theme.slug)"
+              [class]="themes().includes(theme.slug)
+                ? 'rounded-lg bg-moss/10 px-3 py-1.5 text-sm font-medium text-moss-dark border border-moss/30'
+                : 'rounded-lg px-3 py-1.5 text-sm text-muted border border-cloud hover:bg-cloud/60 hover:text-ink transition-colors'"
+            >
+              {{ theme.label }}
+            </button>
+          }
+        </div>
+      </div>
+
       <div class="flex flex-col gap-1">
         <span class="text-sm font-medium text-muted">Explainer</span>
 
@@ -86,13 +104,21 @@ const AUTOSAVE_DELAY_MS = 3000;
           <button
             type="button"
             (click)="publish()"
-            [disabled]="!audioUrl()"
+            [disabled]="!audioUrl() || themes().length === 0"
             class="rounded-xl border border-cloud bg-paper px-5 py-2.5 text-sm font-medium text-ink hover:border-moss hover:bg-cloud/60 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
             Publish
           </button>
-          @if (!audioUrl()) {
-            <span class="text-xs text-muted self-center">Add audio above before you can publish.</span>
+          @if (!audioUrl() || themes().length === 0) {
+            <span class="text-xs text-muted self-center">
+              @if (!audioUrl() && themes().length === 0) {
+                Add audio and at least one theme before you can publish.
+              } @else if (!audioUrl()) {
+                Add audio above before you can publish.
+              } @else {
+                Add at least one theme before you can publish.
+              }
+            </span>
           }
         }
         @if (topicId && status() === 'published') {
@@ -125,6 +151,8 @@ export default class TopicEditorComponent implements AfterViewInit, OnDestroy {
   readonly title = signal('');
   readonly orderIndex = signal(0);
   readonly audioUrl = signal<string | undefined>(undefined);
+  readonly themes = signal<string[]>([]);
+  readonly themeCatalog = TOPIC_THEMES;
   readonly status = signal<'draft' | 'published'>('draft');
   readonly uploadingAudio = signal(false);
   readonly uploadingImage = signal(false);
@@ -141,6 +169,13 @@ export default class TopicEditorComponent implements AfterViewInit, OnDestroy {
     this.orderIndex.set(Number(value));
   }
 
+  toggleTheme(slug: string): void {
+    const set = new Set(this.themes());
+    if (set.has(slug)) set.delete(slug);
+    else set.add(slug);
+    this.themes.set([...set]);
+  }
+
   async ngAfterViewInit(): Promise<void> {
     let initialMarkdown = '';
 
@@ -150,6 +185,7 @@ export default class TopicEditorComponent implements AfterViewInit, OnDestroy {
         this.title.set(existing.title);
         this.orderIndex.set(existing.order_index);
         this.audioUrl.set(existing.audio_url ?? undefined);
+        this.themes.set(existing.themes);
         this.status.set(existing.status);
         initialMarkdown = existing.explainer_markdown;
       }
@@ -192,6 +228,7 @@ export default class TopicEditorComponent implements AfterViewInit, OnDestroy {
         title: this.title(),
         order_index: this.orderIndex(),
         audio_url: this.audioUrl(),
+        themes: this.themes(),
         explainer_markdown: this.editor.getMarkdown(),
       });
       this.autosaveStatus.set(`Autosaved ${new Date().toLocaleTimeString()}`);
@@ -291,6 +328,7 @@ export default class TopicEditorComponent implements AfterViewInit, OnDestroy {
         title: this.title(),
         order_index: this.orderIndex(),
         audio_url: this.audioUrl(),
+        themes: this.themes(),
         explainer_markdown: this.editor.getMarkdown(),
       };
 

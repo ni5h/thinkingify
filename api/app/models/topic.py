@@ -2,7 +2,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, DateTime, Enum, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -24,6 +24,13 @@ class Topic(Base, TimestampMixin):
     # Inline images/diagrams are embedded as ![](url) markdown, not a separate table.
     explainer_markdown: Mapped[str] = mapped_column(Text, nullable=False, default="")
     audio_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    # Plain string tags, not a Theme table/FK — same "no DB enum, never
+    # needs an ALTER TYPE" philosophy as Content.style. See ui's
+    # core/models/theme.ts for the curated catalog these are drawn from.
+    # JSON (not postgresql.ARRAY) so the sqlite-backed test suite can
+    # create this table too — all theme filtering happens client-side, so
+    # there's no need for Postgres's native array query operators here.
+    themes: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list, server_default="[]")
     status: Mapped[TopicStatus] = mapped_column(
         Enum(TopicStatus, name="topicstatus"), nullable=False, default=TopicStatus.draft
     )

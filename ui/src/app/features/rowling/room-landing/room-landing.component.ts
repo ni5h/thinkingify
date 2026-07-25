@@ -3,6 +3,7 @@ import { RouterLink } from '@angular/router';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
 import { TopicService } from '../../../core/services/topic.service';
 import { BlogService } from '../../../core/services/blog.service';
+import { TOPIC_THEMES } from '../../../core/models/theme';
 
 @Component({
   selector: 'app-room-landing',
@@ -15,38 +16,35 @@ import { BlogService } from '../../../core/services/blog.service';
         <h1 class="font-display text-3xl">Rowling</h1>
         <p class="text-muted mt-2 max-w-prose">
           Every great story starts with paying close attention, then telling it back in your own
-          words. Pick a topic below, take some notes as you go, then write your own take &mdash;
-          documentary, story, or just for fun.
+          words. Pick a theme below to find a topic, take some notes as you go, then write your
+          own take &mdash; documentary, story, or just for fun. Or skip straight to a blank page
+          with "Write your own."
         </p>
       </div>
     </div>
 
-    <h2 class="font-display text-xl mt-10">Topics</h2>
-    @if ((topics() ?? []).length === 0) {
-      <p class="text-muted mt-4">No topics published yet &mdash; check back soon.</p>
-    } @else {
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-        @for (topic of topics(); track topic.id) {
-          <a
-            [routerLink]="['/rowling/topics', topic.slug]"
-            class="rounded-2xl border border-cloud bg-white shadow-sm p-5 hover:shadow-md transition-shadow flex flex-col gap-3"
-          >
-            <div class="flex items-center gap-3">
-              <app-icon name="rowling" [size]="22" class="text-moss shrink-0" />
-              <h3 class="font-display text-lg text-ink">{{ topic.title }}</h3>
-            </div>
-            @if (topic.explainer_markdown) {
-              <p class="text-sm text-muted line-clamp-2">{{ topic.explainer_markdown }}</p>
-            }
-            @if (progressByTopicId().get(topic.id); as p) {
-              <span class="text-xs font-mono text-moss-dark bg-moss/10 rounded-full px-2.5 py-1 self-start">
-                {{ p === 'published' ? 'Published' : 'In progress' }}
-              </span>
-            }
-          </a>
-        }
-      </div>
-    }
+    <h2 class="font-display text-xl mt-10">Get started</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+      <a
+        routerLink="/studio/posts/new"
+        class="rounded-2xl border border-amber/40 bg-amber/5 shadow-sm p-5 hover:shadow-md transition-shadow flex items-center justify-between gap-3"
+      >
+        <div>
+          <h3 class="font-display text-lg text-ink">Write your own</h3>
+          <p class="text-sm text-muted mt-1">No topic, no rules &mdash; just write.</p>
+        </div>
+        <app-icon name="arrow-right" [size]="20" class="text-amber shrink-0" />
+      </a>
+      @for (theme of themeCards(); track theme.slug) {
+        <a
+          [routerLink]="['/rowling/themes', theme.slug]"
+          class="rounded-2xl border border-cloud bg-white shadow-sm p-5 hover:shadow-md transition-shadow flex flex-col gap-1"
+        >
+          <h3 class="font-display text-lg text-ink">{{ theme.label }}</h3>
+          <p class="text-sm text-muted">{{ theme.count }} topic{{ theme.count === 1 ? '' : 's' }}</p>
+        </a>
+      }
+    </div>
 
     @if (drafts().length > 0 || published().length > 0) {
       <h2 class="font-display text-xl mt-10">Continue writing</h2>
@@ -73,19 +71,20 @@ export default class RoomLandingComponent {
   private readonly topicService = inject(TopicService);
   private readonly blog = inject(BlogService);
 
-  readonly topics = this.topicService.published;
-
-  private readonly ownRowlingPosts = computed(() => (this.blog.all() ?? []).filter((p) => p.topic_id));
-  readonly drafts = computed(() => this.ownRowlingPosts().filter((p) => p.status === 'draft'));
-  readonly published = computed(() => this.ownRowlingPosts().filter((p) => p.status === 'published'));
-
-  readonly progressByTopicId = computed(() => {
-    const map = new Map<string, 'draft' | 'published'>();
-    for (const post of this.blog.all() ?? []) {
-      if (!post.topic_id) continue;
-      if (post.status === 'published') map.set(post.topic_id, 'published');
-      else if (post.status === 'draft' && !map.has(post.topic_id)) map.set(post.topic_id, 'draft');
+  readonly themeCards = computed(() => {
+    const counts = new Map<string, number>();
+    for (const topic of this.topicService.published() ?? []) {
+      for (const slug of topic.themes) counts.set(slug, (counts.get(slug) ?? 0) + 1);
     }
-    return map;
+    // Curated catalog order; only themes with >=1 published topic, so a
+    // theme card never leads to a dead-end empty listing.
+    return TOPIC_THEMES.filter((t) => counts.has(t.slug)).map((t) => ({ ...t, count: counts.get(t.slug)! }));
   });
+
+  // Not filtered to .topic_id-having posts — BlogService.all() is already
+  // scoped to the current user server-side, so this safely includes
+  // "Write your own" freeform posts (no topic_id) alongside topic-linked ones.
+  private readonly ownPosts = computed(() => this.blog.all() ?? []);
+  readonly drafts = computed(() => this.ownPosts().filter((p) => p.status === 'draft'));
+  readonly published = computed(() => this.ownPosts().filter((p) => p.status === 'published'));
 }

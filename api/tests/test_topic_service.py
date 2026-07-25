@@ -7,10 +7,21 @@ from app.services import topic_service
 
 
 async def _make_topic(
-    db, admin, title: str = "Why Seasons Happen", audio_url: str | None = "https://cdn.test/audio.mp3"
+    db,
+    admin,
+    title: str = "Why Seasons Happen",
+    audio_url: str | None = "https://cdn.test/audio.mp3",
+    themes: list[str] | None = None,
 ):
     return await topic_service.create(
-        db, admin, TopicCreate(title=title, explainer_markdown="body", audio_url=audio_url)
+        db,
+        admin,
+        TopicCreate(
+            title=title,
+            explainer_markdown="body",
+            audio_url=audio_url,
+            themes=themes if themes is not None else ["science"],
+        ),
     )
 
 
@@ -58,6 +69,19 @@ async def test_publish_with_audio_succeeds(db, admin_user):
     assert published.status == TopicStatus.published
 
 
+async def test_publish_without_themes_raises_400(db, admin_user):
+    topic = await _make_topic(db, admin_user, themes=[])
+    with pytest.raises(HTTPException) as exc_info:
+        await topic_service.transition(db, topic, "publish")
+    assert exc_info.value.status_code == 400
+
+
+async def test_publish_with_themes_succeeds(db, admin_user):
+    topic = await _make_topic(db, admin_user, themes=["sports", "history"])
+    published = await topic_service.transition(db, topic, "publish")
+    assert published.status == TopicStatus.published
+
+
 async def test_update_partial_fields(db, admin_user):
     topic = await _make_topic(db, admin_user)
     updated = await topic_service.update(db, topic, TopicUpdate(order_index=5))
@@ -67,10 +91,14 @@ async def test_update_partial_fields(db, admin_user):
 
 async def test_list_published_ordered_by_order_index(db, admin_user):
     a = await topic_service.create(
-        db, admin_user, TopicCreate(title="A", order_index=2, audio_url="https://cdn.test/a.mp3")
+        db,
+        admin_user,
+        TopicCreate(title="A", order_index=2, audio_url="https://cdn.test/a.mp3", themes=["science"]),
     )
     b = await topic_service.create(
-        db, admin_user, TopicCreate(title="B", order_index=1, audio_url="https://cdn.test/b.mp3")
+        db,
+        admin_user,
+        TopicCreate(title="B", order_index=1, audio_url="https://cdn.test/b.mp3", themes=["science"]),
     )
     await topic_service.transition(db, a, "publish")
     await topic_service.transition(db, b, "publish")
@@ -137,7 +165,7 @@ def test_topic_owner_can_update_publish_unpublish_delete(client, admin_user):
     token = _token_for(admin_user, "admin")
     create_resp = client.post(
         "/api/v1/topics",
-        json={"title": "Owned Topic", "audio_url": "https://cdn.test/audio.mp3"},
+        json={"title": "Owned Topic", "audio_url": "https://cdn.test/audio.mp3", "themes": ["science"]},
         headers={"Authorization": f"Bearer {token}"},
     )
     topic_id = create_resp.json()["id"]

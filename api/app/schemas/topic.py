@@ -10,6 +10,7 @@ class TopicCreate(BaseModel):
     title: str
     explainer_markdown: str = ""
     audio_url: str | None = None
+    themes: list[str] = []
     order_index: int = 0
 
 
@@ -17,6 +18,7 @@ class TopicUpdate(BaseModel):
     title: str | None = None
     explainer_markdown: str | None = None
     audio_url: str | None = None
+    themes: list[str] | None = None
     order_index: int | None = None
 
 
@@ -28,6 +30,7 @@ class TopicOut(BaseModel):
     slug: str
     explainer_markdown: str
     audio_url: str | None
+    themes: list[str]
     status: TopicStatus
     order_index: int
     author_id: uuid.UUID
@@ -44,6 +47,7 @@ class TopicListItem(BaseModel):
     slug: str
     explainer_markdown: str
     audio_url: str | None
+    themes: list[str]
     status: TopicStatus
     order_index: int
     author_id: uuid.UUID
