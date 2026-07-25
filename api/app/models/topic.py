@@ -24,6 +24,9 @@ class Topic(Base, TimestampMixin):
     # Inline images/diagrams are embedded as ![](url) markdown, not a separate table.
     explainer_markdown: Mapped[str] = mapped_column(Text, nullable=False, default="")
     audio_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    # Not required to publish (unlike audio_url/themes) — an accessibility/
+    # reference nice-to-have layered on top of already-required audio.
+    audio_transcript: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Plain string tags, not a Theme table/FK — same "no DB enum, never
     # needs an ALTER TYPE" philosophy as Content.style. See ui's
     # core/models/theme.ts for the curated catalog these are drawn from.

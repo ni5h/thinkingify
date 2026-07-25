@@ -48,6 +48,13 @@ import { NotesPanelComponent } from '../../../shared/components/notes-panel/note
           </aside>
         }
 
+        @if (topic()!.audio_transcript) {
+          <details class="mt-6 rounded-2xl border border-cloud bg-white shadow-sm p-4">
+            <summary class="text-sm font-medium text-muted cursor-pointer select-none">Read the transcript</summary>
+            <p class="text-ink/80 mt-3 whitespace-pre-line">{{ topic()!.audio_transcript }}</p>
+          </details>
+        }
+
         <div class="mt-10 rounded-2xl border border-cloud bg-white shadow-sm p-6 text-center">
           <p class="font-display text-xl">Ready to write your own take?</p>
           <a
