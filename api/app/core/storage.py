@@ -12,7 +12,11 @@ _MAX_UPLOAD_AUDIO_BYTES = 20 * 1024 * 1024  # 20MB
 
 
 def _supabase() -> Client:
-    return create_client(settings.supabase_url, settings.supabase_anon_key)
+    # Prefer the service role key so uploads bypass storage.objects RLS
+    # (see the comment on Settings.supabase_service_role_key). Falls back
+    # to the anon key for local/dev setups that don't set one.
+    key = settings.supabase_service_role_key or settings.supabase_anon_key
+    return create_client(settings.supabase_url, key)
 
 
 async def upload_image(file: UploadFile, path_prefix: str) -> str:
