@@ -1,5 +1,6 @@
 from app.models.base import Base
 from app.models.content import Content, ContentStatus
+from app.models.family_link import FamilyLink, FamilyLinkStatus
 from app.models.note import Note
 from app.models.puzzle import PuzzleAttempt, PuzzleGameProgress, PuzzleTier, next_tier
 from app.models.topic import Topic, TopicStatus
@@ -9,6 +10,8 @@ __all__ = [
     "Base",
     "Content",
     "ContentStatus",
+    "FamilyLink",
+    "FamilyLinkStatus",
     "Note",
     "PuzzleAttempt",
     "PuzzleGameProgress",
