@@ -26,6 +26,11 @@ class Settings(BaseSettings):
 
     supabase_url: str = ""
     supabase_anon_key: str = ""
+    # Storage writes go through this key server-side so they bypass the
+    # storage.objects RLS policy — this app has its own JWT auth, not
+    # Supabase Auth, so the anon key never carries an authenticated
+    # session and RLS would reject every upload. Never sent to the client.
+    supabase_service_role_key: str = ""
     supabase_storage_bucket: str = "thinkingify"
 
     cors_origins: str = "http://localhost:4200"
