@@ -14,6 +14,7 @@ export interface TopicListItem {
 }
 
 export interface Topic extends TopicListItem {
+  audio_transcript: string | null;
   published_at: string | null;
   created_at: string;
 }
@@ -22,6 +23,7 @@ export interface TopicDraft {
   title: string;
   explainer_markdown?: string;
   audio_url?: string;
+  audio_transcript?: string;
   themes?: string[];
   order_index?: number;
 }

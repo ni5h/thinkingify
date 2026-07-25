@@ -60,6 +60,17 @@ const AUTOSAVE_DELAY_MS = 3000;
         }
       </label>
 
+      <label class="flex flex-col gap-1">
+        <span class="text-sm font-medium text-muted">Transcript (optional)</span>
+        <textarea
+          rows="6"
+          [value]="audioTranscript()"
+          (input)="audioTranscript.set($any($event.target).value)"
+          placeholder="Paste the narration script here for reference/accessibility..."
+          class="rounded-xl border border-cloud bg-paper px-3 py-2.5 leading-relaxed resize-y focus:outline-none focus:border-moss focus:ring-1 focus:ring-moss/30 transition-colors"
+        ></textarea>
+      </label>
+
       <div class="flex flex-col gap-2">
         <span class="text-sm font-medium text-muted">Themes — at least one required to publish</span>
         <div class="flex flex-wrap gap-2">
@@ -151,6 +162,7 @@ export default class TopicEditorComponent implements AfterViewInit, OnDestroy {
   readonly title = signal('');
   readonly orderIndex = signal(0);
   readonly audioUrl = signal<string | undefined>(undefined);
+  readonly audioTranscript = signal('');
   readonly themes = signal<string[]>([]);
   readonly themeCatalog = TOPIC_THEMES;
   readonly status = signal<'draft' | 'published'>('draft');
@@ -185,6 +197,7 @@ export default class TopicEditorComponent implements AfterViewInit, OnDestroy {
         this.title.set(existing.title);
         this.orderIndex.set(existing.order_index);
         this.audioUrl.set(existing.audio_url ?? undefined);
+        this.audioTranscript.set(existing.audio_transcript ?? '');
         this.themes.set(existing.themes);
         this.status.set(existing.status);
         initialMarkdown = existing.explainer_markdown;
@@ -228,6 +241,7 @@ export default class TopicEditorComponent implements AfterViewInit, OnDestroy {
         title: this.title(),
         order_index: this.orderIndex(),
         audio_url: this.audioUrl(),
+        audio_transcript: this.audioTranscript(),
         themes: this.themes(),
         explainer_markdown: this.editor.getMarkdown(),
       });
@@ -328,6 +342,7 @@ export default class TopicEditorComponent implements AfterViewInit, OnDestroy {
         title: this.title(),
         order_index: this.orderIndex(),
         audio_url: this.audioUrl(),
+        audio_transcript: this.audioTranscript(),
         themes: this.themes(),
         explainer_markdown: this.editor.getMarkdown(),
       };

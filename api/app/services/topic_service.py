@@ -36,6 +36,7 @@ async def create(db: AsyncSession, author: User, data: TopicCreate) -> Topic:
         slug=slug,
         explainer_markdown=data.explainer_markdown,
         audio_url=data.audio_url,
+        audio_transcript=data.audio_transcript,
         themes=data.themes,
         order_index=data.order_index,
         status=TopicStatus.draft,
