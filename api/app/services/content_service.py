@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 
 from fastapi import HTTPException, status
 from slugify import slugify
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.content import Content, ContentStatus
@@ -122,14 +122,30 @@ async def list_published(db: AsyncSession) -> list[Content]:
     return list(result.scalars().all())
 
 
-async def list_all(db: AsyncSession, current_user: User) -> list[Content]:
+async def list_by_author(db: AsyncSession, author_id: uuid.UUID) -> list[Content]:
     query = (
         select(Content)
-        .where(Content.deleted_at.is_(None), Content.author_id == current_user.id)
+        .where(Content.deleted_at.is_(None), Content.author_id == author_id)
         .order_by(Content.updated_at.desc())
     )
     result = await db.execute(query)
     return list(result.scalars().all())
+
+
+async def list_all(db: AsyncSession, current_user: User) -> list[Content]:
+    return await list_by_author(db, current_user.id)
+
+
+async def count_by_status_for_author(db: AsyncSession, author_id: uuid.UUID) -> dict[ContentStatus, int]:
+    result = await db.execute(
+        select(Content.status, func.count(Content.id))
+        .where(Content.deleted_at.is_(None), Content.author_id == author_id)
+        .group_by(Content.status)
+    )
+    counts = {status_value: 0 for status_value in ContentStatus}
+    for status_value, count in result.all():
+        counts[status_value] = count
+    return counts
 
 
 def assert_owner(content: Content, current_user: User) -> None:
