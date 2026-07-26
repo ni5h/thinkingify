@@ -2,7 +2,8 @@ import { Component, computed, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
 import { SketchComponent } from '../../../shared/components/sketch/sketch.component';
-import { ProfileService } from '../../../core/services/profile.service';
+import { UserProfileService } from '../../../core/services/user-profile.service';
+import { AuthService } from '../../../core/services/auth.service';
 
 @Component({
   selector: 'app-vision-hero',
@@ -24,7 +25,9 @@ import { ProfileService } from '../../../core/services/profile.service';
       </h1>
 
       <p class="font-sans text-base text-muted max-w-md mt-6">{{ heroSubline() }}</p>
-      <a routerLink="/profile" class="text-xs text-muted hover:text-ink transition-colors">edit</a>
+      @if (auth.isAuthenticated()) {
+        <a routerLink="/profile" class="text-xs text-muted hover:text-ink transition-colors">edit</a>
+      }
 
       <div class="mt-10">
         <a routerLink="/rowling" class="group inline-flex items-center gap-2 text-base font-medium text-moss">
@@ -36,11 +39,14 @@ import { ProfileService } from '../../../core/services/profile.service';
   `,
 })
 export class VisionHeroComponent {
-  private readonly profileService = inject(ProfileService);
-  private readonly profile = this.profileService.profile;
+  readonly auth = inject(AuthService);
+  private readonly userProfile = inject(UserProfileService);
 
   readonly heroSubline = computed(() => {
-    const { name, tagline } = this.profile();
+    if (!this.auth.isAuthenticated()) return 'Built for one curious learner.';
+    const profile = this.userProfile.me();
+    const name = profile?.first_name;
+    const tagline = profile?.tagline;
     if (name && tagline) return `Built for ${name}, ${tagline}.`;
     if (name) return `Built for ${name}.`;
     if (tagline) return `Built for ${tagline}.`;

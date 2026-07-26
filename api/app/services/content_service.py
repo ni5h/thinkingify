@@ -8,7 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.content import Content, ContentStatus
 from app.models.user import User
-from app.schemas.content import ContentCreate, ContentUpdate
+from app.schemas.content import ContentCreate, ContentListItem, ContentOut, ContentUpdate
+from app.services import user_service
 
 # Legal status transitions, matching the button-gated state machine of the
 # original localStorage BlogService. Enforced server-side now (409 on an
@@ -102,7 +103,7 @@ async def get_by_id(db: AsyncSession, content_id: uuid.UUID) -> Content | None:
     return result.scalar_one_or_none()
 
 
-async def get_published_by_slug(db: AsyncSession, slug: str) -> Content | None:
+async def get_published_by_slug(db: AsyncSession, slug: str) -> ContentOut | None:
     result = await db.execute(
         select(Content).where(
             Content.slug == slug,
@@ -110,16 +111,26 @@ async def get_published_by_slug(db: AsyncSession, slug: str) -> Content | None:
             Content.deleted_at.is_(None),
         )
     )
-    return result.scalar_one_or_none()
+    content = result.scalar_one_or_none()
+    if content is None:
+        return None
+    authors = await user_service.public_summaries_by_id(db, {content.author_id})
+    return ContentOut.model_validate(content).model_copy(update={"author": authors.get(content.author_id)})
 
 
-async def list_published(db: AsyncSession) -> list[Content]:
+async def list_published(db: AsyncSession) -> list[ContentListItem]:
     result = await db.execute(
         select(Content)
         .where(Content.status == ContentStatus.published, Content.deleted_at.is_(None))
         .order_by(Content.published_at.desc())
     )
-    return list(result.scalars().all())
+    items = list(result.scalars().all())
+    if not items:
+        return []
+    authors = await user_service.public_summaries_by_id(db, {c.author_id for c in items})
+    return [
+        ContentListItem.model_validate(c).model_copy(update={"author": authors.get(c.author_id)}) for c in items
+    ]
 
 
 async def list_by_author(db: AsyncSession, author_id: uuid.UUID) -> list[Content]:

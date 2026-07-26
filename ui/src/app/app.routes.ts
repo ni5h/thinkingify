@@ -3,7 +3,16 @@ import { authGuard, noAuthGuard, noPuzzleAuthGuard, sherlockAuthGuard } from './
 
 export const routes: Routes = [
   { path: '', loadComponent: () => import('./features/vision/vision.component') },
-  { path: 'profile', loadComponent: () => import('./features/profile/profile.component') },
+  {
+    path: 'profile',
+    loadComponent: () => import('./features/profile/profile.component'),
+    canActivate: [authGuard],
+  },
+  {
+    path: 'settings',
+    loadComponent: () => import('./features/settings/settings.component'),
+    canActivate: [authGuard],
+  },
   { path: 'dashboard', loadComponent: () => import('./features/dashboard/dashboard.component') },
   {
     path: 'sherlock/login',

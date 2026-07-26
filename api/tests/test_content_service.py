@@ -164,6 +164,41 @@ async def test_assert_owner(db, author_user, admin_user):
     assert exc_info.value.status_code == 403
 
 
+async def test_published_list_and_detail_include_author_display_name_only(db, learner_user):
+    from app.schemas.user import ProfileUpdate
+    from app.services import user_service
+
+    await user_service.update_profile(
+        db, learner_user, ProfileUpdate(username="neo", first_name="Neo", last_name="Pandey")
+    )
+    post = await _make_post(db, learner_user, "Byline Post")
+    post.status = ContentStatus.published
+    await db.commit()
+    await db.refresh(post)
+
+    listed = await content_service.list_published(db)
+    item = next(p for p in listed if p.id == post.id)
+    assert item.author.display_name == "neo"
+    assert not hasattr(item.author, "last_name")
+
+    detail = await content_service.get_published_by_slug(db, post.slug)
+    assert detail.author.display_name == "neo"
+
+
+async def test_published_detail_author_falls_back_to_first_name(db, learner_user):
+    from app.schemas.user import ProfileUpdate
+    from app.services import user_service
+
+    await user_service.update_profile(db, learner_user, ProfileUpdate(first_name="Grace"))
+    post = await _make_post(db, learner_user, "No Username Post")
+    post.status = ContentStatus.published
+    await db.commit()
+    await db.refresh(post)
+
+    detail = await content_service.get_published_by_slug(db, post.slug)
+    assert detail.author.display_name == "Grace"
+
+
 async def test_self_publish_sets_published_at_and_topic_style_round_trip(db, learner_user):
     topic_id = uuid.uuid4()
     post = await content_service.create(

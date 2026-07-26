@@ -6,6 +6,7 @@ from app.api.v1.family import router as family_router
 from app.api.v1.puzzles import router as puzzles_router
 from app.api.v1.topics import router as topics_router
 from app.api.v1.uploads import router as uploads_router
+from app.api.v1.users import router as users_router
 
 api_v1_router = APIRouter()
 api_v1_router.include_router(auth_router)
@@ -14,3 +15,4 @@ api_v1_router.include_router(family_router)
 api_v1_router.include_router(puzzles_router)
 api_v1_router.include_router(topics_router)
 api_v1_router.include_router(uploads_router)
+api_v1_router.include_router(users_router)

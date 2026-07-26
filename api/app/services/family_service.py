@@ -161,6 +161,24 @@ async def assert_accepted_guardian_of(db: AsyncSession, guardian: User, child_id
     return child
 
 
+async def assert_linked(db: AsyncSession, viewer: User, other_user_id: uuid.UUID) -> User:
+    """Permission check for viewing another user's profile: allowed if
+    it's your own id, or either party is an accepted guardian of the
+    other. Bidirectional, so it serves both "child views guardian" and
+    "guardian views child" with one function."""
+    result = await db.execute(select(User).where(User.id == other_user_id))
+    other = result.scalar_one_or_none()
+    if other is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No such user.")
+    if viewer.id == other_user_id:
+        return other
+    if await is_accepted_guardian(db, guardian_id=viewer.id, child_id=other_user_id):
+        return other
+    if await is_accepted_guardian(db, guardian_id=other_user_id, child_id=viewer.id):
+        return other
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not linked to this user.")
+
+
 async def users_by_id(db: AsyncSession, user_ids: set[uuid.UUID]) -> dict[uuid.UUID, User]:
     """Batch lookup so serializing a list of links doesn't N+1 — no
     SQLAlchemy relationships on FamilyLink, matching this codebase's

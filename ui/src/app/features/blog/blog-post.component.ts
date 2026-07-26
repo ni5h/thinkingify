@@ -21,7 +21,12 @@ import { Content } from '../../core/models/content';
         }
         <h1 class="font-display text-4xl text-ink mt-6">{{ post()!.title }}</h1>
         <p class="text-muted mt-2">{{ post()!.summary }}</p>
-        <p class="text-xs text-muted font-mono mt-3">{{ post()!.published_at | date: 'mediumDate' }}</p>
+        <p class="text-xs text-muted font-mono mt-3">
+          @if (post()!.author?.display_name) {
+            {{ post()!.author!.display_name }} &middot;
+          }
+          {{ post()!.published_at | date: 'mediumDate' }}
+        </p>
         <div class="markdown-content mt-8" [innerHTML]="renderedContent()"></div>
       </article>
     } @else if (post() === null) {

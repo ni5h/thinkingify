@@ -1,6 +1,8 @@
-import { Component, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { IconComponent, IconName } from '../../shared/components/icon/icon.component';
+import { AuthService } from '../../core/services/auth.service';
+import { UserProfileService } from '../../core/services/user-profile.service';
 
 interface NavItem {
   label: string;
@@ -54,14 +56,59 @@ const NAV_ITEMS: NavItem[] = [
           </li>
         }
       </ul>
+
+      <!-- User menu: deliberately separate from the 6-item NAV_ITEMS array
+           above (which also drives the mobile bottom tab bar, kept fixed
+           at 6 tabs) -->
+      <div class="mt-auto px-3 py-4 border-t border-cloud">
+        @if (auth.isAuthenticated()) {
+          <a routerLink="/profile" [attr.title]="collapsed() ? 'Profile' : null" class="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-cloud/60 transition-colors">
+            @if (me()?.avatar_url) {
+              <img [src]="me()!.avatar_url" alt="" class="h-8 w-8 rounded-full object-cover shrink-0" />
+            } @else {
+              <div class="h-8 w-8 rounded-full bg-cloud flex items-center justify-center text-xs font-display text-muted shrink-0">
+                {{ avatarInitial() }}
+              </div>
+            }
+            @if (!collapsed()) {
+              <span class="text-sm font-medium text-ink truncate">{{ displayName() }}</span>
+            }
+          </a>
+          <a routerLink="/settings" [attr.title]="collapsed() ? 'Settings' : null" class="flex items-center gap-3 px-2 py-2 mt-1 rounded-xl text-sm font-medium text-muted hover:bg-cloud/60 hover:text-ink transition-colors">
+            <app-icon name="settings" [size]="18" />
+            @if (!collapsed()) {
+              <span>Settings</span>
+            }
+          </a>
+        } @else {
+          <a routerLink="/studio/login" [attr.title]="collapsed() ? 'Log in' : null" class="flex items-center gap-3 px-2 py-2 rounded-xl text-sm font-medium text-muted hover:bg-cloud/60 hover:text-ink transition-colors">
+            <app-icon name="log-in" [size]="18" />
+            @if (!collapsed()) {
+              <span>Log in</span>
+            }
+          </a>
+        }
+      </div>
     </nav>
 
     <!-- Mobile top bar: the desktop sidebar's wordmark-to-/ link has no
          equivalent in the bottom tab bar below (which is deliberately just
          the 6 module tabs, not a 7th "mission page" tab), so give mobile a
-         separate way back to / here. -->
-    <div class="md:hidden fixed top-0 left-0 right-0 z-10 bg-paper border-b border-cloud px-4 py-3">
+         separate way back to / here. Right side is the same user-menu entry
+         point as the desktop sidebar footer. -->
+    <div class="md:hidden fixed top-0 left-0 right-0 z-10 bg-paper border-b border-cloud px-4 py-3 flex items-center justify-between">
       <a routerLink="/" class="font-display text-lg text-ink hover:text-moss transition-colors">Thinkingify</a>
+      @if (auth.isAuthenticated()) {
+        <a routerLink="/profile">
+          @if (me()?.avatar_url) {
+            <img [src]="me()!.avatar_url" alt="" class="h-8 w-8 rounded-full object-cover" />
+          } @else {
+            <div class="h-8 w-8 rounded-full bg-cloud flex items-center justify-center text-xs font-display text-muted">{{ avatarInitial() }}</div>
+          }
+        </a>
+      } @else {
+        <a routerLink="/studio/login" class="rounded-lg px-3 py-1.5 text-sm font-medium text-muted hover:bg-cloud/60 hover:text-ink transition-colors">Log in</a>
+      }
     </div>
 
     <!-- Mobile bottom nav -->
@@ -84,8 +131,15 @@ const NAV_ITEMS: NavItem[] = [
   `,
 })
 export class NavComponent {
+  readonly auth = inject(AuthService);
+  private readonly userProfile = inject(UserProfileService);
+  readonly me = this.userProfile.me;
+
   readonly items = NAV_ITEMS;
   readonly collapsed = signal(false);
+
+  readonly displayName = computed(() => this.me()?.first_name || this.me()?.name || 'You');
+  readonly avatarInitial = computed(() => this.displayName().charAt(0).toUpperCase());
 
   sidebarClass(): string {
     const width = this.collapsed() ? 'md:w-20' : 'md:w-60';

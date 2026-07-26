@@ -5,6 +5,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict
 
 from app.models.content import ContentStatus
+from app.schemas.user import UserPublicSummary
 
 WritingStyle = Literal["documentary", "story", "fun_casual", "freeform"]
 
@@ -42,6 +43,11 @@ class ContentOut(BaseModel):
     published_at: datetime | None
     created_at: datetime
     updated_at: datetime
+    # Only populated by the public-facing list_published/get_published_by_slug
+    # paths (see content_service._attach_authors) — Content has no ORM
+    # attribute for this, so it defaults to None everywhere else (owner-
+    # facing Studio routes just `return content` and never render a byline).
+    author: UserPublicSummary | None = None
 
 
 class ContentListItem(BaseModel):
@@ -57,3 +63,4 @@ class ContentListItem(BaseModel):
     style: WritingStyle | None
     published_at: datetime | None
     updated_at: datetime
+    author: UserPublicSummary | None = None

@@ -53,12 +53,12 @@ async def google_sign_in(token: str, db: AsyncSession) -> TokenResponse:
             role=UserRole.learner,
         )
         db.add(user)
-    else:
-        user.name = name
-        user.avatar_url = avatar_url
-
-    await db.commit()
-    await db.refresh(user)
+        await db.commit()
+        await db.refresh(user)
+    # else: existing user — deliberately not re-syncing name/avatar_url
+    # from Google here. Google is just the initial seed; a user who's
+    # customized first_name/avatar_url via the Profile page shouldn't
+    # have it silently clobbered by their next login.
 
     return _issue_tokens(user)
 
