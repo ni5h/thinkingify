@@ -8,8 +8,8 @@ from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.models.user import User
 from app.schemas.auth import AccessTokenResponse, GoogleAuthRequest, RefreshRequest, TokenResponse
-from app.schemas.user import UserOut
-from app.services import auth_service
+from app.schemas.user import ProfileUpdate, UserOut
+from app.services import auth_service, user_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -34,3 +34,12 @@ async def refresh_token(body: RefreshRequest, db: Annotated[AsyncSession, Depend
 @router.get("/me", response_model=UserOut)
 async def me(current_user: Annotated[User, Depends(get_current_user)]):
     return current_user
+
+
+@router.patch("/me", response_model=UserOut)
+async def update_me(
+    body: ProfileUpdate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    return await user_service.update_profile(db, current_user, body)

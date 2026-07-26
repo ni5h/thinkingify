@@ -20,11 +20,6 @@ export interface Lesson {
   source?: string;
 }
 
-export interface Profile {
-  name: string; // '' = unset
-  tagline: string; // '' = unset, e.g. "one curious eight-year-old"
-}
-
 export interface ProgressStats {
   articlesWritten: number;
   puzzlesSolvedCount: number;
@@ -50,14 +45,15 @@ export interface AppState {
   completedLessonIds: string[];
   /** Distinct YYYY-MM-DD entries, one per day with any qualifying activity. */
   activityDates: string[];
-  profile: Profile;
 }
 
-// Bumped 2 -> 3 for the removal of `journalEntries` (retired — the Rowling
-// Room's Notes + self-publish flow replaces its "write in your own words"
-// purpose; no real data existed worth migrating). Only additive fields need
-// a StorageService.migrate() backfill; removing a field does not.
-export const APP_STATE_VERSION = 3;
+// Bumped 3 -> 4 for the removal of `profile` (retired — personalization now
+// comes from the real account profile via UserProfileService, not a local
+// {name, tagline} pair; see features/profile/profile.component.ts). Only
+// additive fields need a StorageService.migrate() backfill; removing a
+// field does not — a stale `profile` key in existing users' localStorage is
+// simply ignored going forward.
+export const APP_STATE_VERSION = 4;
 
 export function createEmptyAppState(): AppState {
   return {
@@ -65,6 +61,5 @@ export function createEmptyAppState(): AppState {
     solvedPuzzleIds: [],
     completedLessonIds: [],
     activityDates: [],
-    profile: { name: '', tagline: '' },
   };
 }

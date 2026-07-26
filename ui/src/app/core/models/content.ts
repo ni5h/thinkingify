@@ -1,3 +1,5 @@
+import { UserPublicSummary } from './user';
+
 export type ContentStatus = 'draft' | 'pending_review' | 'published' | 'archived';
 export type WritingStyle = 'documentary' | 'story' | 'fun_casual' | 'freeform';
 
@@ -12,6 +14,8 @@ export interface ContentListItem {
   style: WritingStyle | null;
   published_at: string | null;
   updated_at: string;
+  // Only populated on the public /content/published* endpoints.
+  author: UserPublicSummary | null;
 }
 
 export interface Content extends ContentListItem {

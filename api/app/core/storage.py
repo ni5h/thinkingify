@@ -58,6 +58,10 @@ async def upload_topic_image(file: UploadFile) -> str:
     return await upload_image(file, "topic-images")
 
 
+async def upload_avatar_image(file: UploadFile) -> str:
+    return await upload_image(file, "avatars")
+
+
 async def upload_topic_audio(file: UploadFile) -> str:
     if not (file.content_type or "").startswith("audio/"):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "File must be audio.")
