@@ -1,4 +1,15 @@
-import { AfterViewInit, Component, HostListener, OnDestroy, inject, signal, viewChild } from '@angular/core';
+import {
+  Component,
+  HostListener,
+  OnDestroy,
+  OnInit,
+  computed,
+  effect,
+  inject,
+  signal,
+  viewChild,
+  viewChildren,
+} from '@angular/core';
 import { RouterLink, ActivatedRoute } from '@angular/router';
 import { Editor } from '@tiptap/core';
 import { StarterKit } from '@tiptap/starter-kit';
@@ -6,27 +17,22 @@ import { Markdown } from '@tiptap/markdown';
 import { Placeholder } from '@tiptap/extension-placeholder';
 import { BlogService } from '../../../core/services/blog.service';
 import { NoteService } from '../../../core/services/note.service';
-import { WritingStyle } from '../../../core/models/content';
 import { NotesPanelComponent } from '../../../shared/components/notes-panel/notes-panel.component';
+import { EditorToolbarComponent } from '../../../shared/components/editor-toolbar/editor-toolbar.component';
+import { applyToolbarCommand, computeActiveMarks, ToolbarCommand } from '../../../shared/components/editor-toolbar/apply-toolbar-command';
+import { SectionEditorComponent } from './section-editor/section-editor.component';
+import { StyleScaffold } from './style-scaffolds';
+import { assembleSectionMarkdown, resolveEditorMode } from './section-markdown';
 
 const AUTOSAVE_DELAY_MS = 3000;
 const FREEFORM_PLACEHOLDER = 'Start writing...';
 
-// Structural scaffolding only — headings the kid fills in under, never
-// generated prose, consistent with the app's "no AI writes for him" rule.
-// Seeded once into a brand-new draft's editor content (see
-// ngAfterViewInit); 'freeform' intentionally has no entry — a clean slate
-// with just the placeholder ghost text below.
-const STYLE_TEMPLATES: Partial<Record<WritingStyle, string>> = {
-  documentary: '## What is it?\n\n\n## Why does it happen?\n\n\n## One fact that surprised me\n\n',
-  story: '## The situation\n\n\n## What happened\n\n\n## How it turned out\n\n',
-  fun_casual: '## The wildest part\n\n\n## My take\n\n',
-};
+type EditorViewMode = 'loading' | 'scaffolded' | 'blank';
 
 @Component({
   selector: 'app-writing-studio',
   standalone: true,
-  imports: [RouterLink, NotesPanelComponent],
+  imports: [RouterLink, NotesPanelComponent, EditorToolbarComponent, SectionEditorComponent],
   template: `
     <a routerLink="/rowling" class="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-muted hover:bg-cloud/60 hover:text-ink transition-colors">
       &larr; Back to Rowling
@@ -47,6 +53,8 @@ const STYLE_TEMPLATES: Partial<Record<WritingStyle, string>> = {
           {{ copied() ? 'Link copied!' : 'Copy link' }}
         </button>
       </div>
+    } @else if (mode() === 'loading') {
+      <p class="text-muted mt-6">Loading&hellip;</p>
     } @else {
       <div class="flex items-baseline justify-between gap-4 mt-4">
         <h1 class="font-display text-3xl">{{ title() || 'Your writing' }}</h1>
@@ -70,23 +78,41 @@ const STYLE_TEMPLATES: Partial<Record<WritingStyle, string>> = {
             />
           </label>
 
-          <div class="flex flex-wrap items-center gap-1 rounded-t-xl border border-cloud border-b-0 px-3 py-2 bg-paper mt-4">
-            <button type="button" (click)="toggleBold()" [class]="markClass('bold')">B</button>
-            <button type="button" (click)="toggleItalic()" [class]="markClass('italic')">I</button>
-            <button type="button" (click)="toggleHeading(2)" [class]="markClass('heading2')">H2</button>
-            <button type="button" (click)="toggleHeading(3)" [class]="markClass('heading3')">H3</button>
-            <button type="button" (click)="toggleBulletList()" [class]="markClass('bulletList')">&bull; List</button>
-            <button type="button" (click)="toggleOrderedList()" [class]="markClass('orderedList')">1. List</button>
-            <button type="button" (click)="toggleBlockquote()" [class]="markClass('blockquote')">Quote</button>
+          <div class="flex justify-end mt-2">
             <button
               type="button"
               (click)="toggleMaximized()"
-              class="ml-auto rounded-lg px-2.5 py-1.5 text-sm text-muted hover:bg-cloud hover:text-ink transition-colors"
+              class="rounded-lg px-2.5 py-1.5 text-sm text-muted hover:bg-cloud hover:text-ink transition-colors"
             >
               {{ maximized() ? 'Exit fullscreen' : 'Fullscreen' }}
             </button>
           </div>
-          <div #editorEl class="markdown-content rounded-b-xl border border-cloud px-4 py-3 min-h-[16rem] focus-within:border-moss transition-colors"></div>
+
+          @if (mode() === 'scaffolded') {
+            <div class="flex flex-col gap-5 mt-2">
+              @for (section of revealedSections(); track section.id) {
+                <app-section-editor
+                  [section]="section"
+                  [initialMarkdown]="sectionContent()[section.id]"
+                  (markdownChange)="onSectionChange(section.id, $event)"
+                />
+              }
+              @if (revealedCount() < totalSections()) {
+                <button
+                  type="button"
+                  (click)="revealNext()"
+                  class="self-start rounded-xl border border-cloud bg-paper px-5 py-2.5 text-sm font-medium text-ink hover:border-moss hover:bg-cloud/60 transition-colors"
+                >
+                  Next part &rarr;
+                </button>
+              }
+            </div>
+          } @else {
+            <div class="mt-2">
+              <app-editor-toolbar [activeMarks]="activeMarks()" (command)="onCommand($event)" />
+              <div #editorEl class="markdown-content rounded-b-xl border border-cloud px-4 py-3 min-h-[16rem] focus-within:border-moss transition-colors"></div>
+            </div>
+          }
 
           <button
             type="button"
@@ -111,12 +137,13 @@ const STYLE_TEMPLATES: Partial<Record<WritingStyle, string>> = {
     }
   `,
 })
-export default class WritingStudioComponent implements AfterViewInit, OnDestroy {
+export default class WritingStudioComponent implements OnInit, OnDestroy {
   private readonly blog = inject(BlogService);
   private readonly noteService = inject(NoteService);
   private readonly route = inject(ActivatedRoute);
 
   private readonly editorEl = viewChild<{ nativeElement: HTMLElement }>('editorEl');
+  private readonly sectionEditors = viewChildren(SectionEditorComponent);
 
   readonly postId = this.route.snapshot.paramMap.get('id')!;
 
@@ -128,15 +155,37 @@ export default class WritingStudioComponent implements AfterViewInit, OnDestroy 
   readonly publishedSlug = signal('');
   readonly copied = signal(false);
   readonly error = signal<string | null>(null);
-
-  private readonly activeMarks = signal<Set<string>>(new Set());
   readonly maximized = signal(false);
 
+  readonly mode = signal<EditorViewMode>('loading');
+  readonly scaffold = signal<StyleScaffold | null>(null);
+  readonly sectionContent = signal<Record<string, string>>({});
+  readonly revealedCount = signal(1);
+  private readonly blankSeed = signal('');
+
+  readonly revealedSections = computed(() => this.scaffold()?.sections?.slice(0, this.revealedCount()) ?? []);
+  readonly totalSections = computed(() => this.scaffold()?.sections?.length ?? 0);
+
+  readonly activeMarks = signal<Set<string>>(new Set());
+
   private topicId: string | null = null;
-  private editor!: Editor;
+  private editor?: Editor;
   private autosaveTimer?: ReturnType<typeof setTimeout>;
 
-  async ngAfterViewInit(): Promise<void> {
+  constructor() {
+    // Blank mode's single editor mounts here instead of ngAfterViewInit —
+    // its #editorEl div only exists once `mode()` resolves to 'blank'
+    // (after the async post fetch), so mounting has to react to both the
+    // element appearing and the mode becoming known.
+    effect(() => {
+      const el = this.editorEl();
+      if (el && this.mode() === 'blank' && !this.editor) {
+        this.mountBlankEditor(el.nativeElement);
+      }
+    });
+  }
+
+  async ngOnInit(): Promise<void> {
     const post = await this.blog.getById(this.postId);
     if (!post) return;
 
@@ -151,20 +200,28 @@ export default class WritingStudioComponent implements AfterViewInit, OnDestroy 
       this.noteBody.set(note.body);
     }
 
-    // A template is only ever seeded into a brand-new, still-empty draft —
-    // re-opening a draft the kid has already started writing in never
-    // overwrites their work with the template again.
-    const hasExistingContent = !!post.content_markdown?.trim();
-    const initialContent = hasExistingContent
-      ? post.content_markdown
-      : post.style
-        ? (STYLE_TEMPLATES[post.style] ?? '')
-        : '';
+    const resolved = resolveEditorMode(post.style, post.content_markdown);
+    if (resolved.mode === 'blank') {
+      this.blankSeed.set(resolved.seed);
+      this.mode.set('blank');
+    } else {
+      this.scaffold.set(resolved.scaffold);
+      this.sectionContent.set(resolved.content);
+      this.revealedCount.set(resolved.revealedCount);
+      this.mode.set('scaffolded');
+    }
+  }
 
+  ngOnDestroy(): void {
+    if (this.autosaveTimer) clearTimeout(this.autosaveTimer);
+    this.editor?.destroy();
+  }
+
+  private mountBlankEditor(element: HTMLElement): void {
     this.editor = new Editor({
-      element: this.editorEl()!.nativeElement,
+      element,
       extensions: [StarterKit, Markdown, Placeholder.configure({ placeholder: FREEFORM_PLACEHOLDER })],
-      content: initialContent,
+      content: this.blankSeed(),
       contentType: 'markdown',
       onUpdate: () => {
         this.syncActiveMarks();
@@ -175,59 +232,32 @@ export default class WritingStudioComponent implements AfterViewInit, OnDestroy 
     this.syncActiveMarks();
   }
 
-  ngOnDestroy(): void {
-    if (this.autosaveTimer) clearTimeout(this.autosaveTimer);
-    this.editor?.destroy();
-  }
-
   private syncActiveMarks(): void {
-    // Seeding non-trivial initial content (a style template) can trigger a
-    // plugin-driven transaction dispatch synchronously during `new Editor(...)`
-    // itself — before the constructor call has returned and been assigned to
-    // `this.editor` — so `onUpdate` can fire once with `this.editor` still
-    // undefined. An empty editor (freeform / editing existing content) never
-    // hits this, only the template-seeding path does.
+    // Same TipTap quirk as section-editor.component.ts: seeding non-trivial
+    // initial content can trigger onUpdate synchronously during `new
+    // Editor(...)`, before `this.editor` is assigned.
     if (!this.editor) return;
-    const active = new Set<string>();
-    if (this.editor.isActive('bold')) active.add('bold');
-    if (this.editor.isActive('italic')) active.add('italic');
-    if (this.editor.isActive('heading', { level: 2 })) active.add('heading2');
-    if (this.editor.isActive('heading', { level: 3 })) active.add('heading3');
-    if (this.editor.isActive('bulletList')) active.add('bulletList');
-    if (this.editor.isActive('orderedList')) active.add('orderedList');
-    if (this.editor.isActive('blockquote')) active.add('blockquote');
-    this.activeMarks.set(active);
+    this.activeMarks.set(computeActiveMarks(this.editor));
   }
 
-  markClass(name: string): string {
-    const active = this.activeMarks().has(name);
-    return active
-      ? 'rounded-lg bg-moss/10 px-2.5 py-1.5 text-sm font-medium text-moss-dark'
-      : 'rounded-lg px-2.5 py-1.5 text-sm text-muted hover:bg-cloud hover:text-ink transition-colors';
+  onCommand(command: ToolbarCommand): void {
+    if (this.editor) applyToolbarCommand(this.editor, command);
   }
 
-  toggleBold(): void {
-    this.editor.chain().focus().toggleBold().run();
+  onSectionChange(sectionId: string, markdown: string): void {
+    this.sectionContent.update((map) => ({ ...map, [sectionId]: markdown }));
+    this.scheduleAutosave();
   }
 
-  toggleItalic(): void {
-    this.editor.chain().focus().toggleItalic().run();
-  }
-
-  toggleHeading(level: 2 | 3): void {
-    this.editor.chain().focus().toggleHeading({ level }).run();
-  }
-
-  toggleBulletList(): void {
-    this.editor.chain().focus().toggleBulletList().run();
-  }
-
-  toggleOrderedList(): void {
-    this.editor.chain().focus().toggleOrderedList().run();
-  }
-
-  toggleBlockquote(): void {
-    this.editor.chain().focus().toggleBlockquote().run();
+  revealNext(): void {
+    const total = this.totalSections();
+    const nextCount = Math.min(this.revealedCount() + 1, total);
+    if (nextCount === this.revealedCount()) return;
+    this.revealedCount.set(nextCount);
+    // Newly-revealed section's SectionEditorComponent mounts its own
+    // editor asynchronously in its own ngAfterViewInit — defer the focus
+    // call to the next tick so it's actually there to receive it.
+    setTimeout(() => this.sectionEditors()[nextCount - 1]?.focusEditor(), 0);
   }
 
   toggleMaximized(): void {
@@ -249,11 +279,21 @@ export default class WritingStudioComponent implements AfterViewInit, OnDestroy 
     this.autosaveTimer = setTimeout(() => void this.autosave(), AUTOSAVE_DELAY_MS);
   }
 
+  private currentMarkdown(): string {
+    if (this.mode() === 'scaffolded') {
+      const scaffold = this.scaffold();
+      return scaffold?.sections
+        ? assembleSectionMarkdown(scaffold.sections, this.sectionContent(), this.revealedCount())
+        : '';
+    }
+    return this.editor?.getMarkdown() ?? this.blankSeed();
+  }
+
   private async autosave(): Promise<void> {
     try {
       await this.blog.update(this.postId, {
         title: this.title(),
-        content_markdown: this.editor.getMarkdown(),
+        content_markdown: this.currentMarkdown(),
       });
       this.autosaveStatus.set(`Autosaved ${new Date().toLocaleTimeString()}`);
     } catch {
@@ -267,7 +307,7 @@ export default class WritingStudioComponent implements AfterViewInit, OnDestroy 
     try {
       await this.blog.update(this.postId, {
         title: this.title(),
-        content_markdown: this.editor.getMarkdown(),
+        content_markdown: this.currentMarkdown(),
       });
       await this.blog.selfPublish(this.postId);
       const post = await this.blog.getById(this.postId);
