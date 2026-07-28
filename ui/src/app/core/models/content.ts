@@ -1,7 +1,7 @@
 import { UserPublicSummary } from './user';
 
 export type ContentStatus = 'draft' | 'pending_review' | 'published' | 'archived';
-export type WritingStyle = 'documentary' | 'story' | 'fun_casual' | 'freeform';
+export type WritingStyle = 'fairy_tale' | 'news_report' | 'diary_entry' | 'letter' | 'how_to' | 'blank';
 
 export interface ContentListItem {
   id: string;
@@ -11,7 +11,10 @@ export interface ContentListItem {
   feature_image_url: string | null;
   status: ContentStatus;
   topic_id: string | null;
-  style: WritingStyle | null;
+  // Deliberately string, not WritingStyle — read path, may hold a value
+  // from before the style set last changed. WritingStyle (strict) is only
+  // enforced on writes, see ContentDraft below.
+  style: string | null;
   published_at: string | null;
   updated_at: string;
   // Only populated on the public /content/published* endpoints.

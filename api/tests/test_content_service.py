@@ -3,7 +3,7 @@ import uuid
 import pytest
 from fastapi import HTTPException
 
-from app.models.content import ContentStatus
+from app.models.content import Content, ContentStatus
 from app.models.user import User, UserRole
 from app.schemas.content import ContentCreate
 from app.services import content_service
@@ -204,10 +204,10 @@ async def test_self_publish_sets_published_at_and_topic_style_round_trip(db, lea
     post = await content_service.create(
         db,
         learner_user,
-        ContentCreate(title="My Take", content_markdown="body", topic_id=topic_id, style="documentary"),
+        ContentCreate(title="My Take", content_markdown="body", topic_id=topic_id, style="fairy_tale"),
     )
     assert post.topic_id == topic_id
-    assert post.style == "documentary"
+    assert post.style == "fairy_tale"
 
     published = await content_service.transition(db, post, "self_publish")
     assert published.status == ContentStatus.published
@@ -308,3 +308,28 @@ async def test_publish_endpoint_rejects_non_owner(client, db, learner_user):
 
     response = client.post(f"/api/v1/content/{content_id}/publish", headers={"Authorization": f"Bearer {other_token}"})
     assert response.status_code == 403
+
+
+async def test_legacy_style_value_still_reads_successfully(client, db, learner_user):
+    """A post whose style predates the current style set (stored directly,
+    bypassing ContentCreate's strict Literal — exactly how a real pre-
+    existing row would look) must still be readable. ContentOut/
+    ContentListItem type style as plain str for this reason; if they ever
+    regress back to the strict WritingStyle Literal, this 500s instead of
+    returning the post."""
+    legacy_post = Content(
+        id=uuid.uuid4(),
+        title="Old Style Post",
+        slug="old-style-post",
+        content_markdown="body",
+        status=ContentStatus.draft,
+        author_id=learner_user.id,
+        style="documentary",
+    )
+    db.add(legacy_post)
+    await db.commit()
+
+    token = _token_for(learner_user, "learner")
+    response = client.get(f"/api/v1/content/{legacy_post.id}", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 200
+    assert response.json()["style"] == "documentary"

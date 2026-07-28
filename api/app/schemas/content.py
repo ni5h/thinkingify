@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict
 from app.models.content import ContentStatus
 from app.schemas.user import UserPublicSummary
 
-WritingStyle = Literal["documentary", "story", "fun_casual", "freeform"]
+WritingStyle = Literal["fairy_tale", "news_report", "diary_entry", "letter", "how_to", "blank"]
 
 
 class ContentCreate(BaseModel):
@@ -39,7 +39,11 @@ class ContentOut(BaseModel):
     status: ContentStatus
     author_id: uuid.UUID
     topic_id: uuid.UUID | None
-    style: WritingStyle | None
+    # Deliberately str, not WritingStyle — this is the read path and must
+    # never fail to serialize a value stored before the style set last
+    # changed (WritingStyle is enforced on writes only, see ContentCreate/
+    # ContentUpdate above).
+    style: str | None
     published_at: datetime | None
     created_at: datetime
     updated_at: datetime
@@ -60,7 +64,7 @@ class ContentListItem(BaseModel):
     feature_image_url: str | None
     status: ContentStatus
     topic_id: uuid.UUID | None
-    style: WritingStyle | None
+    style: str | None
     published_at: datetime | None
     updated_at: datetime
     author: UserPublicSummary | None = None
