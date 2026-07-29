@@ -21,6 +21,7 @@ import { NotesPanelComponent } from '../../../shared/components/notes-panel/note
 import { EditorToolbarComponent } from '../../../shared/components/editor-toolbar/editor-toolbar.component';
 import { applyToolbarCommand, computeActiveMarks, ToolbarCommand } from '../../../shared/components/editor-toolbar/apply-toolbar-command';
 import { SectionEditorComponent } from './section-editor/section-editor.component';
+import { CompanionPanelComponent } from './companion-panel/companion-panel.component';
 import { StyleScaffold } from './style-scaffolds';
 import { assembleSectionMarkdown, resolveEditorMode } from './section-markdown';
 
@@ -32,7 +33,7 @@ type EditorViewMode = 'loading' | 'scaffolded' | 'blank';
 @Component({
   selector: 'app-writing-studio',
   standalone: true,
-  imports: [RouterLink, NotesPanelComponent, EditorToolbarComponent, SectionEditorComponent],
+  imports: [RouterLink, NotesPanelComponent, EditorToolbarComponent, SectionEditorComponent, CompanionPanelComponent],
   template: `
     <a routerLink="/rowling" class="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-muted hover:bg-cloud/60 hover:text-ink transition-colors">
       &larr; Back to Rowling
@@ -78,7 +79,16 @@ type EditorViewMode = 'loading' | 'scaffolded' | 'blank';
             />
           </label>
 
-          <div class="flex justify-end mt-2">
+          <div class="flex justify-end gap-2 mt-2">
+            @if (topicId() && !maximized()) {
+              <button
+                type="button"
+                (click)="chatOpen.set(!chatOpen())"
+                class="rounded-lg px-2.5 py-1.5 text-sm text-muted hover:bg-cloud hover:text-ink transition-colors"
+              >
+                {{ chatOpen() ? 'Hide writing buddy' : 'Writing buddy' }}
+              </button>
+            }
             <button
               type="button"
               (click)="toggleMaximized()"
@@ -134,6 +144,22 @@ type EditorViewMode = 'loading' | 'scaffolded' | 'blank';
           </aside>
         }
       </div>
+
+      @if (topicId() && chatOpen() && !maximized()) {
+        <div class="fixed inset-0 z-40 bg-ink/20" (click)="chatOpen.set(false)"></div>
+        <div class="fixed inset-y-0 right-0 z-50 w-full sm:w-96 bg-paper border-l border-cloud shadow-lg p-4 flex flex-col">
+          <button
+            type="button"
+            (click)="chatOpen.set(false)"
+            class="self-end rounded-lg px-3 py-1.5 text-sm font-medium text-muted hover:bg-cloud/60 hover:text-ink transition-colors mb-2"
+          >
+            Close
+          </button>
+          <div class="flex-1 min-h-0">
+            <app-companion-panel [contentId]="postId" [sessionId]="companionSessionId" />
+          </div>
+        </div>
+      }
     }
   `,
 })
@@ -156,6 +182,14 @@ export default class WritingStudioComponent implements OnInit, OnDestroy {
   readonly copied = signal(false);
   readonly error = signal<string | null>(null);
   readonly maximized = signal(false);
+  // Opens a fixed-position drawer over the page (not a flex column) since
+  // the app shell caps every route's content at max-w-3xl — a docked
+  // third column has no room to grow into at any viewport width.
+  readonly chatOpen = signal(false);
+  // Session boundary for the writing companion — one continuous Writing
+  // Studio visit is one session, regardless of how many times the chat
+  // panel itself is opened/closed within that visit.
+  readonly companionSessionId = crypto.randomUUID();
 
   readonly mode = signal<EditorViewMode>('loading');
   readonly scaffold = signal<StyleScaffold | null>(null);
@@ -168,7 +202,7 @@ export default class WritingStudioComponent implements OnInit, OnDestroy {
 
   readonly activeMarks = signal<Set<string>>(new Set());
 
-  private topicId: string | null = null;
+  readonly topicId = signal<string | null>(null);
   private editor?: Editor;
   private autosaveTimer?: ReturnType<typeof setTimeout>;
 
@@ -195,7 +229,7 @@ export default class WritingStudioComponent implements OnInit, OnDestroy {
       this.publishedSlug.set(post.slug);
     }
     if (post.topic_id) {
-      this.topicId = post.topic_id;
+      this.topicId.set(post.topic_id);
       const note = await this.noteService.getOrCreate(post.topic_id);
       this.noteBody.set(note.body);
     }
@@ -321,8 +355,9 @@ export default class WritingStudioComponent implements OnInit, OnDestroy {
   }
 
   async saveNote(): Promise<void> {
-    if (!this.topicId) return;
-    await this.noteService.update(this.topicId, this.noteBody());
+    const topicId = this.topicId();
+    if (!topicId) return;
+    await this.noteService.update(topicId, this.noteBody());
   }
 
   async copyLink(): Promise<void> {
