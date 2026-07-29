@@ -33,6 +33,13 @@ class Settings(BaseSettings):
     supabase_service_role_key: str = ""
     supabase_storage_bucket: str = "thinkingify"
 
+    # Writing companion chat — Anthropic Claude Haiku, chosen over free-tier
+    # alternatives specifically because Anthropic doesn't train on API
+    # customer data by default, a real consideration for a child's writing.
+    anthropic_api_key: str = ""
+    anthropic_model: str = "claude-haiku-4-5-20251001"
+    anthropic_timeout_seconds: float = 20.0
+
     cors_origins: str = "http://localhost:4200"
 
     @property
