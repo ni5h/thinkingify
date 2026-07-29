@@ -8,8 +8,12 @@ import { Markdown } from '@tiptap/markdown';
 import { Placeholder } from '@tiptap/extension-placeholder';
 import { BlogService } from '../../../core/services/blog.service';
 import { FamilyService } from '../../../core/services/family.service';
+import { SpellingService } from '../../../core/services/spelling.service';
+import { SpellingFlag } from '../../../core/models/spelling';
 import { resizeAndCompressImage } from '../../../core/utils/image';
 import { ContentStatus } from '../../../core/models/content';
+import { SpellingCheckPanelComponent } from '../../../shared/components/spelling-check-panel/spelling-check-panel.component';
+import { applyWordCorrection } from '../../../shared/utils/apply-word-correction';
 
 const AUTOSAVE_DELAY_MS = 3000;
 const WORDS_PER_MINUTE = 200;
@@ -17,7 +21,7 @@ const WORDS_PER_MINUTE = 200;
 @Component({
   selector: 'app-studio-post-editor',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, SpellingCheckPanelComponent],
   template: `
     <a routerLink="/studio/posts" class="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-muted hover:bg-cloud/60 hover:text-ink transition-colors">
       &larr; Back to posts
@@ -99,11 +103,20 @@ const WORDS_PER_MINUTE = 200;
         <div #editorEl class="markdown-content rounded-b-xl border border-cloud px-4 py-3 min-h-[16rem] focus-within:border-moss transition-colors"></div>
       </div>
 
+      @if (spellingFlags(); as flags) {
+        <app-spelling-check-panel
+          [flags]="flags"
+          [contentId]="postId!"
+          (correctionApplied)="onCorrectionApplied($event)"
+          (allResolved)="onSpellingAllResolved()"
+        />
+      }
+
       <div class="flex flex-wrap gap-3 mt-2">
         <button type="button" (click)="save()" [disabled]="saving()" class="rounded-xl bg-moss px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-moss-dark transition-colors disabled:opacity-60">
           {{ saving() ? 'Saving…' : 'Save' }}
         </button>
-        @if (postId && status() === 'draft') {
+        @if (postId && status() === 'draft' && !spellingFlags()) {
           <button
             type="button"
             (click)="publish()"
@@ -133,6 +146,7 @@ const WORDS_PER_MINUTE = 200;
 export default class StudioPostEditorComponent implements AfterViewInit, OnDestroy {
   private readonly blog = inject(BlogService);
   readonly family = inject(FamilyService);
+  private readonly spelling = inject(SpellingService);
   private readonly http = inject(HttpClient);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -150,6 +164,7 @@ export default class StudioPostEditorComponent implements AfterViewInit, OnDestr
   readonly status = signal<ContentStatus>('draft');
   readonly error = signal<string | null>(null);
   readonly autosaveStatus = signal<string | null>(null);
+  readonly spellingFlags = signal<SpellingFlag[] | null>(null);
 
   private readonly activeMarks = signal<Set<string>>(new Set());
   readonly maximized = signal(false);
@@ -191,6 +206,17 @@ export default class StudioPostEditorComponent implements AfterViewInit, OnDestr
     });
     this.syncActiveMarks();
     this.syncWordCount();
+
+    // Session continuity: a returning kid sees still-pending flags from a
+    // previous check without needing to click Publish again first.
+    if (this.postId && this.status() === 'draft') {
+      try {
+        const flags = await this.spelling.list(this.postId);
+        if (flags.length > 0) this.spellingFlags.set(flags);
+      } catch {
+        // Non-critical — the kid can still just click Publish and re-check then.
+      }
+    }
   }
 
   ngOnDestroy(): void {
@@ -345,6 +371,22 @@ export default class StudioPostEditorComponent implements AfterViewInit, OnDestr
     }
   }
 
+  private applyCorrectionInEditor(oldWord: string, newWord: string): void {
+    const replaced = applyWordCorrection(this.editor.getMarkdown(), oldWord, newWord);
+    if (replaced === null) return;
+    this.editor.commands.setContent(replaced, { contentType: 'markdown' });
+    this.syncActiveMarks();
+    this.syncWordCount();
+  }
+
+  onCorrectionApplied(event: { oldWord: string; newWord: string }): void {
+    this.applyCorrectionInEditor(event.oldWord, event.newWord);
+  }
+
+  async onSpellingAllResolved(): Promise<void> {
+    await this.attemptPublish();
+  }
+
   // Self-publish, not the admin submit-for-review/publish workflow used
   // elsewhere on this page's own posts-list — ownership-gated, no review
   // step, same mechanism the Rowling Writing Studio already uses. This is
@@ -353,28 +395,47 @@ export default class StudioPostEditorComponent implements AfterViewInit, OnDestr
   // Once the author has an accepted guardian, self-publish is blocked
   // server-side — submit for review instead, matching the Writing Studio.
   async publish(): Promise<void> {
+    await this.attemptPublish();
+  }
+
+  private async attemptPublish(): Promise<void> {
     if (!this.postId) return;
     this.publishing.set(true);
     this.error.set(null);
     try {
-      await this.blog.update(this.postId, {
-        title: this.title(),
-        summary: this.summary(),
-        content_markdown: this.editor.getMarkdown(),
-        feature_image_url: this.featureImageUrl(),
-      });
-      if (this.family.hasAcceptedGuardian()) {
-        await this.blog.submitForReview(this.postId);
-        this.status.set('pending_review');
-      } else {
-        await this.blog.selfPublish(this.postId);
-        this.status.set('published');
-      }
+      await this.runGate();
     } catch (err) {
       const detail = (err as { error?: { detail?: string } })?.error?.detail;
       this.error.set(detail ?? 'Could not publish this post. Please try again.');
     } finally {
       this.publishing.set(false);
     }
+  }
+
+  // Mandatory gate, mirroring the Writing Studio: always save, then always
+  // re-check spelling before the real publish/submit call. Clean writing
+  // sails straight through invisibly.
+  private async runGate(): Promise<void> {
+    const postId = this.postId!;
+    await this.blog.update(postId, {
+      title: this.title(),
+      summary: this.summary(),
+      content_markdown: this.editor.getMarkdown(),
+      feature_image_url: this.featureImageUrl(),
+    });
+
+    const flags = await this.spelling.check(postId, this.editor.getText());
+    if (flags.length === 0) {
+      this.spellingFlags.set(null);
+      if (this.family.hasAcceptedGuardian()) {
+        await this.blog.submitForReview(postId);
+        this.status.set('pending_review');
+      } else {
+        await this.blog.selfPublish(postId);
+        this.status.set('published');
+      }
+      return;
+    }
+    this.spellingFlags.set(flags);
   }
 }

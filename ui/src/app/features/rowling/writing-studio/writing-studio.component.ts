@@ -18,9 +18,13 @@ import { Placeholder } from '@tiptap/extension-placeholder';
 import { BlogService } from '../../../core/services/blog.service';
 import { NoteService } from '../../../core/services/note.service';
 import { FamilyService } from '../../../core/services/family.service';
+import { SpellingService } from '../../../core/services/spelling.service';
+import { SpellingFlag } from '../../../core/models/spelling';
 import { NotesPanelComponent } from '../../../shared/components/notes-panel/notes-panel.component';
 import { EditorToolbarComponent } from '../../../shared/components/editor-toolbar/editor-toolbar.component';
 import { applyToolbarCommand, computeActiveMarks, ToolbarCommand } from '../../../shared/components/editor-toolbar/apply-toolbar-command';
+import { SpellingCheckPanelComponent } from '../../../shared/components/spelling-check-panel/spelling-check-panel.component';
+import { applyWordCorrection } from '../../../shared/utils/apply-word-correction';
 import { SectionEditorComponent } from './section-editor/section-editor.component';
 import { CompanionPanelComponent } from './companion-panel/companion-panel.component';
 import { StyleScaffold } from './style-scaffolds';
@@ -34,7 +38,14 @@ type EditorViewMode = 'loading' | 'scaffolded' | 'blank';
 @Component({
   selector: 'app-writing-studio',
   standalone: true,
-  imports: [RouterLink, NotesPanelComponent, EditorToolbarComponent, SectionEditorComponent, CompanionPanelComponent],
+  imports: [
+    RouterLink,
+    NotesPanelComponent,
+    EditorToolbarComponent,
+    SectionEditorComponent,
+    CompanionPanelComponent,
+    SpellingCheckPanelComponent,
+  ],
   template: `
     <a routerLink="/rowling" class="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-muted hover:bg-cloud/60 hover:text-ink transition-colors">
       &larr; Back to Rowling
@@ -130,14 +141,24 @@ type EditorViewMode = 'loading' | 'scaffolded' | 'blank';
             </div>
           }
 
-          <button
-            type="button"
-            (click)="publish()"
-            [disabled]="publishing()"
-            class="mt-4 rounded-xl bg-moss px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-moss-dark transition-colors disabled:opacity-60"
-          >
-            {{ publishing() ? 'Sending…' : (family.hasAcceptedGuardian() ? 'Submit for review' : 'Publish to your blog') }}
-          </button>
+          @if (spellingFlags(); as flags) {
+            <app-spelling-check-panel
+              class="block mt-4"
+              [flags]="flags"
+              [contentId]="postId"
+              (correctionApplied)="onCorrectionApplied($event)"
+              (allResolved)="onSpellingAllResolved()"
+            />
+          } @else {
+            <button
+              type="button"
+              (click)="publish()"
+              [disabled]="publishing()"
+              class="mt-4 rounded-xl bg-moss px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-moss-dark transition-colors disabled:opacity-60"
+            >
+              {{ publishing() ? 'Sending…' : (family.hasAcceptedGuardian() ? 'Submit for review' : 'Publish to your blog') }}
+            </button>
+          }
 
           @if (error()) {
             <p class="text-amber text-sm mt-2">{{ error() }}</p>
@@ -172,6 +193,7 @@ type EditorViewMode = 'loading' | 'scaffolded' | 'blank';
 export default class WritingStudioComponent implements OnInit, OnDestroy {
   private readonly blog = inject(BlogService);
   private readonly noteService = inject(NoteService);
+  private readonly spelling = inject(SpellingService);
   private readonly route = inject(ActivatedRoute);
   readonly family = inject(FamilyService);
 
@@ -211,6 +233,7 @@ export default class WritingStudioComponent implements OnInit, OnDestroy {
   readonly activeMarks = signal<Set<string>>(new Set());
 
   readonly topicId = signal<string | null>(null);
+  readonly spellingFlags = signal<SpellingFlag[] | null>(null);
   private editor?: Editor;
   private autosaveTimer?: ReturnType<typeof setTimeout>;
 
@@ -251,6 +274,18 @@ export default class WritingStudioComponent implements OnInit, OnDestroy {
       this.sectionContent.set(resolved.content);
       this.revealedCount.set(resolved.revealedCount);
       this.mode.set('scaffolded');
+    }
+
+    // Session continuity: a kid returning to a draft with still-pending
+    // flags from a previous check sees them immediately, without needing
+    // to click Publish again first.
+    if (!this.published() && !this.submittedForReview()) {
+      try {
+        const flags = await this.spelling.list(this.postId);
+        if (flags.length > 0) this.spellingFlags.set(flags);
+      } catch {
+        // Non-critical — the kid can still just click Publish and re-check then.
+      }
     }
   }
 
@@ -343,27 +378,90 @@ export default class WritingStudioComponent implements OnInit, OnDestroy {
     }
   }
 
+  // Only ever reads from currently-mounted section editors (never the
+  // sectionContent()/saved-markdown signal) — a flagged word can only ever
+  // have come from text the check actually saw, so this guarantees
+  // applyCorrectionAcrossEditors() below is always able to find it.
+  private extractPlainText(): string {
+    if (this.mode() === 'scaffolded') {
+      return this.sectionEditors()
+        .map((editor) => editor.getPlainText())
+        .join('\n\n');
+    }
+    return this.editor?.getText() ?? '';
+  }
+
+  // Calls every mounted section unconditionally, not just the first match
+  // — the same misspelled word can legitimately appear in more than one
+  // section, and dedup is document-wide, not per-section.
+  private applyCorrectionAcrossEditors(oldWord: string, newWord: string): void {
+    if (this.mode() === 'scaffolded') {
+      for (const sectionEditor of this.sectionEditors()) {
+        sectionEditor.applyCorrection(oldWord, newWord);
+      }
+      return;
+    }
+    if (!this.editor) return;
+    const replaced = applyWordCorrection(this.editor.getMarkdown(), oldWord, newWord);
+    if (replaced !== null) {
+      this.editor.commands.setContent(replaced, { contentType: 'markdown' });
+      this.syncActiveMarks();
+    }
+  }
+
+  onCorrectionApplied(event: { oldWord: string; newWord: string }): void {
+    this.applyCorrectionAcrossEditors(event.oldWord, event.newWord);
+  }
+
+  async onSpellingAllResolved(): Promise<void> {
+    await this.attemptPublish();
+  }
+
   async publish(): Promise<void> {
+    await this.attemptPublish();
+  }
+
+  private async attemptPublish(): Promise<void> {
     this.publishing.set(true);
     this.error.set(null);
     try {
-      await this.blog.update(this.postId, {
-        title: this.title(),
-        content_markdown: this.currentMarkdown(),
-      });
-      if (this.family.hasAcceptedGuardian()) {
-        await this.blog.submitForReview(this.postId);
-        this.submittedForReview.set(true);
-      } else {
-        await this.blog.selfPublish(this.postId);
-        const post = await this.blog.getById(this.postId);
-        this.publishedSlug.set(post?.slug ?? '');
-        this.published.set(true);
-      }
+      await this.runGate();
     } catch {
       this.error.set('Could not publish. Please try again.');
     } finally {
       this.publishing.set(false);
+    }
+  }
+
+  // Mandatory gate: always save, then always re-check spelling — clean
+  // writing sails straight through invisibly, flags interrupt with the
+  // panel instead of the real publish/submit call. Re-running the check
+  // (rather than trusting the panel's local "all resolved" state) closes
+  // the race where a new typo was introduced while fixing others.
+  private async runGate(): Promise<void> {
+    await this.blog.update(this.postId, {
+      title: this.title(),
+      content_markdown: this.currentMarkdown(),
+    });
+
+    const flags = await this.spelling.check(this.postId, this.extractPlainText());
+    if (flags.length === 0) {
+      this.spellingFlags.set(null);
+      await this.doRealPublish();
+      return;
+    }
+    this.spellingFlags.set(flags);
+  }
+
+  private async doRealPublish(): Promise<void> {
+    if (this.family.hasAcceptedGuardian()) {
+      await this.blog.submitForReview(this.postId);
+      this.submittedForReview.set(true);
+    } else {
+      await this.blog.selfPublish(this.postId);
+      const post = await this.blog.getById(this.postId);
+      this.publishedSlug.set(post?.slug ?? '');
+      this.published.set(true);
     }
   }
 
