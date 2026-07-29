@@ -17,6 +17,7 @@ import { Markdown } from '@tiptap/markdown';
 import { Placeholder } from '@tiptap/extension-placeholder';
 import { BlogService } from '../../../core/services/blog.service';
 import { NoteService } from '../../../core/services/note.service';
+import { FamilyService } from '../../../core/services/family.service';
 import { NotesPanelComponent } from '../../../shared/components/notes-panel/notes-panel.component';
 import { EditorToolbarComponent } from '../../../shared/components/editor-toolbar/editor-toolbar.component';
 import { applyToolbarCommand, computeActiveMarks, ToolbarCommand } from '../../../shared/components/editor-toolbar/apply-toolbar-command';
@@ -53,6 +54,11 @@ type EditorViewMode = 'loading' | 'scaffolded' | 'blank';
         >
           {{ copied() ? 'Link copied!' : 'Copy link' }}
         </button>
+      </div>
+    } @else if (submittedForReview()) {
+      <div class="max-w-md mx-auto mt-16 rounded-2xl border border-cloud bg-white shadow-sm p-8 text-center">
+        <h1 class="font-display text-2xl text-ink">Submitted!</h1>
+        <p class="text-muted mt-2">Your guardian will take a look soon.</p>
       </div>
     } @else if (mode() === 'loading') {
       <p class="text-muted mt-6">Loading&hellip;</p>
@@ -130,7 +136,7 @@ type EditorViewMode = 'loading' | 'scaffolded' | 'blank';
             [disabled]="publishing()"
             class="mt-4 rounded-xl bg-moss px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-moss-dark transition-colors disabled:opacity-60"
           >
-            {{ publishing() ? 'Publishing…' : 'Publish to your blog' }}
+            {{ publishing() ? 'Sending…' : (family.hasAcceptedGuardian() ? 'Submit for review' : 'Publish to your blog') }}
           </button>
 
           @if (error()) {
@@ -167,6 +173,7 @@ export default class WritingStudioComponent implements OnInit, OnDestroy {
   private readonly blog = inject(BlogService);
   private readonly noteService = inject(NoteService);
   private readonly route = inject(ActivatedRoute);
+  readonly family = inject(FamilyService);
 
   private readonly editorEl = viewChild<{ nativeElement: HTMLElement }>('editorEl');
   private readonly sectionEditors = viewChildren(SectionEditorComponent);
@@ -178,6 +185,7 @@ export default class WritingStudioComponent implements OnInit, OnDestroy {
   readonly autosaveStatus = signal<string | null>(null);
   readonly publishing = signal(false);
   readonly published = signal(false);
+  readonly submittedForReview = signal(false);
   readonly publishedSlug = signal('');
   readonly copied = signal(false);
   readonly error = signal<string | null>(null);
@@ -343,10 +351,15 @@ export default class WritingStudioComponent implements OnInit, OnDestroy {
         title: this.title(),
         content_markdown: this.currentMarkdown(),
       });
-      await this.blog.selfPublish(this.postId);
-      const post = await this.blog.getById(this.postId);
-      this.publishedSlug.set(post?.slug ?? '');
-      this.published.set(true);
+      if (this.family.hasAcceptedGuardian()) {
+        await this.blog.submitForReview(this.postId);
+        this.submittedForReview.set(true);
+      } else {
+        await this.blog.selfPublish(this.postId);
+        const post = await this.blog.getById(this.postId);
+        this.publishedSlug.set(post?.slug ?? '');
+        this.published.set(true);
+      }
     } catch {
       this.error.set('Could not publish. Please try again.');
     } finally {
