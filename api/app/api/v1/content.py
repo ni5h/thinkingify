@@ -9,7 +9,7 @@ from app.core.deps import get_current_user
 from app.models.user import User
 from app.schemas.companion import CompanionMessageCreate, CompanionMessageOut
 from app.schemas.content import ContentCreate, ContentListItem, ContentOut, ContentUpdate
-from app.services import companion_service, content_service
+from app.services import companion_service, content_service, family_service
 
 router = APIRouter(prefix="/content", tags=["content"])
 
@@ -20,6 +20,37 @@ async def _get_owned_or_404(db: AsyncSession, content_id: uuid.UUID, current_use
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found.")
     content_service.assert_owner(content, current_user)
     return content
+
+
+async def _get_publishable_or_404(db: AsyncSession, content_id: uuid.UUID, current_user: User):
+    """Like _get_owned_or_404, but for publish/archive/republish only:
+    once the author has an accepted guardian, only that guardian may call
+    these — not the author themself, even though they still own it.
+    Deliberately kept at the router level rather than inside
+    content_service, so content_service never has to import
+    family_service (same layering family.py already uses to orchestrate
+    both services without either depending on the other)."""
+    content = await content_service.get_by_id(db, content_id)
+    if content is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found.")
+    if content.author_id == current_user.id:
+        if await family_service.has_any_accepted_guardian(db, content.author_id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="This post has a linked guardian — only your guardian can publish or unpublish it.",
+            )
+        return content
+    if await family_service.is_accepted_guardian(db, guardian_id=current_user.id, child_id=content.author_id):
+        return content
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to publish or unpublish this post.")
+
+
+async def _assert_self_publish_allowed(db: AsyncSession, current_user: User) -> None:
+    if await family_service.has_any_accepted_guardian(db, current_user.id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You have a linked guardian — submit for review instead of publishing directly.",
+        )
 
 
 @router.get("/published", response_model=list[ContentListItem])
@@ -98,7 +129,7 @@ async def publish(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
 ):
-    content = await _get_owned_or_404(db, content_id, current_user)
+    content = await _get_publishable_or_404(db, content_id, current_user)
     return await content_service.transition(db, content, "publish")
 
 
@@ -108,7 +139,7 @@ async def archive(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
 ):
-    content = await _get_owned_or_404(db, content_id, current_user)
+    content = await _get_publishable_or_404(db, content_id, current_user)
     return await content_service.transition(db, content, "archive")
 
 
@@ -119,6 +150,7 @@ async def self_publish(
     current_user: Annotated[User, Depends(get_current_user)],
 ):
     content = await _get_owned_or_404(db, content_id, current_user)
+    await _assert_self_publish_allowed(db, current_user)
     return await content_service.transition(db, content, "self_publish")
 
 
@@ -129,6 +161,7 @@ async def self_republish(
     current_user: Annotated[User, Depends(get_current_user)],
 ):
     content = await _get_owned_or_404(db, content_id, current_user)
+    await _assert_self_publish_allowed(db, current_user)
     return await content_service.transition(db, content, "self_republish")
 
 
@@ -138,7 +171,7 @@ async def republish(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
 ):
-    content = await _get_owned_or_404(db, content_id, current_user)
+    content = await _get_publishable_or_404(db, content_id, current_user)
     return await content_service.transition(db, content, "republish")
 
 

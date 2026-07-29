@@ -6,11 +6,16 @@ from fastapi import HTTPException
 from app.models.content import Content, ContentStatus
 from app.models.user import User, UserRole
 from app.schemas.content import ContentCreate
-from app.services import content_service
+from app.services import content_service, family_service
 
 
 async def _make_post(db, author: User, title: str = "Hello World"):
     return await content_service.create(db, author, ContentCreate(title=title, content_markdown="body"))
+
+
+async def _link_guardian(db, guardian: User, child: User):
+    link = await family_service.send_request(db, child, guardian.email, "guardian")
+    await family_service.accept(db, link.id, guardian)
 
 
 async def test_create_generates_slug_and_defaults_to_draft(db, author_user):
@@ -333,3 +338,156 @@ async def test_legacy_style_value_still_reads_successfully(client, db, learner_u
     response = client.get(f"/api/v1/content/{legacy_post.id}", headers={"Authorization": f"Bearer {token}"})
     assert response.status_code == 200
     assert response.json()["style"] == "documentary"
+
+
+# --- Guardian publish-approval gate ---
+
+
+async def test_self_publish_route_blocked_once_guardian_linked(client, db, admin_user, learner_user):
+    await _link_guardian(db, guardian=admin_user, child=learner_user)
+    token = _token_for(learner_user, "learner")
+
+    create_resp = client.post(
+        "/api/v1/content", json={"title": "Draft", "content_markdown": ""}, headers={"Authorization": f"Bearer {token}"}
+    )
+    content_id = create_resp.json()["id"]
+
+    response = client.post(f"/api/v1/content/{content_id}/self-publish", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 403
+
+
+async def test_self_republish_route_blocked_once_guardian_linked(client, db, admin_user, learner_user):
+    await _link_guardian(db, guardian=admin_user, child=learner_user)
+    token = _token_for(learner_user, "learner")
+
+    create_resp = client.post(
+        "/api/v1/content", json={"title": "Draft", "content_markdown": ""}, headers={"Authorization": f"Bearer {token}"}
+    )
+    content_id = create_resp.json()["id"]
+
+    response = client.post(f"/api/v1/content/{content_id}/self-republish", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 403
+
+
+async def test_submit_for_review_and_back_to_draft_stay_owner_only_when_guarded(client, db, admin_user, learner_user):
+    await _link_guardian(db, guardian=admin_user, child=learner_user)
+    token = _token_for(learner_user, "learner")
+
+    create_resp = client.post(
+        "/api/v1/content", json={"title": "Draft", "content_markdown": ""}, headers={"Authorization": f"Bearer {token}"}
+    )
+    content_id = create_resp.json()["id"]
+
+    submit_resp = client.post(
+        f"/api/v1/content/{content_id}/submit-for-review", headers={"Authorization": f"Bearer {token}"}
+    )
+    assert submit_resp.status_code == 200
+    assert submit_resp.json()["status"] == "pending_review"
+
+    back_resp = client.post(
+        f"/api/v1/content/{content_id}/back-to-draft", headers={"Authorization": f"Bearer {token}"}
+    )
+    assert back_resp.status_code == 200
+    assert back_resp.json()["status"] == "draft"
+
+
+async def test_guardian_can_publish_childs_pending_review_post(client, db, admin_user, learner_user):
+    await _link_guardian(db, guardian=admin_user, child=learner_user)
+    child_token = _token_for(learner_user, "learner")
+    guardian_token = _token_for(admin_user, "admin")
+
+    create_resp = client.post(
+        "/api/v1/content",
+        json={"title": "Draft", "content_markdown": ""},
+        headers={"Authorization": f"Bearer {child_token}"},
+    )
+    content_id = create_resp.json()["id"]
+    client.post(f"/api/v1/content/{content_id}/submit-for-review", headers={"Authorization": f"Bearer {child_token}"})
+
+    response = client.post(
+        f"/api/v1/content/{content_id}/publish", headers={"Authorization": f"Bearer {guardian_token}"}
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "published"
+
+
+async def test_guardian_can_archive_childs_published_post_child_cannot(client, db, admin_user, learner_user):
+    child_token = _token_for(learner_user, "learner")
+    guardian_token = _token_for(admin_user, "admin")
+
+    create_resp = client.post(
+        "/api/v1/content",
+        json={"title": "Draft", "content_markdown": ""},
+        headers={"Authorization": f"Bearer {child_token}"},
+    )
+    content_id = create_resp.json()["id"]
+    # Self-published BEFORE the guardian link exists — retroactive scope.
+    client.post(f"/api/v1/content/{content_id}/self-publish", headers={"Authorization": f"Bearer {child_token}"})
+
+    await _link_guardian(db, guardian=admin_user, child=learner_user)
+
+    child_archive_resp = client.post(
+        f"/api/v1/content/{content_id}/archive", headers={"Authorization": f"Bearer {child_token}"}
+    )
+    assert child_archive_resp.status_code == 403
+
+    guardian_archive_resp = client.post(
+        f"/api/v1/content/{content_id}/archive", headers={"Authorization": f"Bearer {guardian_token}"}
+    )
+    assert guardian_archive_resp.status_code == 200
+    assert guardian_archive_resp.json()["status"] == "archived"
+
+
+async def test_guardian_can_republish_childs_archived_post(client, db, admin_user, learner_user):
+    await _link_guardian(db, guardian=admin_user, child=learner_user)
+    child_token = _token_for(learner_user, "learner")
+    guardian_token = _token_for(admin_user, "admin")
+
+    create_resp = client.post(
+        "/api/v1/content",
+        json={"title": "Draft", "content_markdown": ""},
+        headers={"Authorization": f"Bearer {child_token}"},
+    )
+    content_id = create_resp.json()["id"]
+    client.post(f"/api/v1/content/{content_id}/submit-for-review", headers={"Authorization": f"Bearer {child_token}"})
+    client.post(f"/api/v1/content/{content_id}/publish", headers={"Authorization": f"Bearer {guardian_token}"})
+    client.post(f"/api/v1/content/{content_id}/archive", headers={"Authorization": f"Bearer {guardian_token}"})
+
+    response = client.post(
+        f"/api/v1/content/{content_id}/republish", headers={"Authorization": f"Bearer {guardian_token}"}
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "published"
+
+
+async def test_unrelated_user_still_rejected_from_guarded_childs_content(client, db, admin_user, learner_user, author_user):
+    await _link_guardian(db, guardian=admin_user, child=learner_user)
+    child_token = _token_for(learner_user, "learner")
+    unrelated_token = _token_for(author_user, "author")
+
+    create_resp = client.post(
+        "/api/v1/content",
+        json={"title": "Draft", "content_markdown": ""},
+        headers={"Authorization": f"Bearer {child_token}"},
+    )
+    content_id = create_resp.json()["id"]
+    client.post(f"/api/v1/content/{content_id}/submit-for-review", headers={"Authorization": f"Bearer {child_token}"})
+
+    response = client.post(
+        f"/api/v1/content/{content_id}/publish", headers={"Authorization": f"Bearer {unrelated_token}"}
+    )
+    assert response.status_code == 403
+
+
+async def test_non_guarded_user_self_publish_flow_unaffected(client, learner_user):
+    """Regression check: a user with no guardian link at all keeps the
+    exact pre-existing self-publish behavior."""
+    token = _token_for(learner_user, "learner")
+    create_resp = client.post(
+        "/api/v1/content", json={"title": "Draft", "content_markdown": ""}, headers={"Authorization": f"Bearer {token}"}
+    )
+    content_id = create_resp.json()["id"]
+
+    response = client.post(f"/api/v1/content/{content_id}/self-publish", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 200
+    assert response.json()["status"] == "published"

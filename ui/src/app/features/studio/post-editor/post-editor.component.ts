@@ -7,6 +7,7 @@ import { StarterKit } from '@tiptap/starter-kit';
 import { Markdown } from '@tiptap/markdown';
 import { Placeholder } from '@tiptap/extension-placeholder';
 import { BlogService } from '../../../core/services/blog.service';
+import { FamilyService } from '../../../core/services/family.service';
 import { resizeAndCompressImage } from '../../../core/utils/image';
 import { ContentStatus } from '../../../core/models/content';
 
@@ -109,8 +110,11 @@ const WORDS_PER_MINUTE = 200;
             [disabled]="publishing()"
             class="rounded-xl border border-cloud bg-paper px-5 py-2.5 text-sm font-medium text-ink hover:border-moss hover:bg-cloud/60 transition-colors disabled:opacity-60"
           >
-            {{ publishing() ? 'Publishing…' : 'Publish' }}
+            {{ publishing() ? 'Sending…' : (family.hasAcceptedGuardian() ? 'Submit for review' : 'Publish') }}
           </button>
+        }
+        @if (postId && status() === 'pending_review') {
+          <span class="self-center text-xs text-muted font-mono">Pending review</span>
         }
         @if (postId && status() === 'published') {
           <span class="self-center text-xs text-muted font-mono">Published</span>
@@ -128,6 +132,7 @@ const WORDS_PER_MINUTE = 200;
 })
 export default class StudioPostEditorComponent implements AfterViewInit, OnDestroy {
   private readonly blog = inject(BlogService);
+  readonly family = inject(FamilyService);
   private readonly http = inject(HttpClient);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -345,6 +350,8 @@ export default class StudioPostEditorComponent implements AfterViewInit, OnDestr
   // step, same mechanism the Rowling Writing Studio already uses. This is
   // what makes "Write your own" (which lands here) a complete, self-
   // contained writing flow instead of a draft with no way to publish it.
+  // Once the author has an accepted guardian, self-publish is blocked
+  // server-side — submit for review instead, matching the Writing Studio.
   async publish(): Promise<void> {
     if (!this.postId) return;
     this.publishing.set(true);
@@ -356,8 +363,13 @@ export default class StudioPostEditorComponent implements AfterViewInit, OnDestr
         content_markdown: this.editor.getMarkdown(),
         feature_image_url: this.featureImageUrl(),
       });
-      await this.blog.selfPublish(this.postId);
-      this.status.set('published');
+      if (this.family.hasAcceptedGuardian()) {
+        await this.blog.submitForReview(this.postId);
+        this.status.set('pending_review');
+      } else {
+        await this.blog.selfPublish(this.postId);
+        this.status.set('published');
+      }
     } catch (err) {
       const detail = (err as { error?: { detail?: string } })?.error?.detail;
       this.error.set(detail ?? 'Could not publish this post. Please try again.');

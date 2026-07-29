@@ -3,8 +3,10 @@ import { RouterLink } from '@angular/router';
 import { UserProfileService } from '../../core/services/user-profile.service';
 import { FamilyService } from '../../core/services/family.service';
 import { AuthService } from '../../core/services/auth.service';
+import { BlogService } from '../../core/services/blog.service';
 import { AccountType, UserLinkedProfile } from '../../core/models/user';
 import { ChildSummary, FamilyLink, TargetRole } from '../../core/models/family';
+import { ContentListItem } from '../../core/models/content';
 import { resizeAndCompressImage } from '../../core/utils/image';
 
 @Component({
@@ -166,6 +168,9 @@ import { resizeAndCompressImage } from '../../core/utils/image';
                   <button type="button" (click)="toggleProfile(link.child.id)" class="rounded-lg px-2.5 py-1 text-xs font-medium text-muted hover:bg-cloud/60 hover:text-ink transition-colors">
                     {{ expandedUserId() === link.child.id ? 'Hide profile' : 'View profile' }}
                   </button>
+                  <button type="button" (click)="toggleReview(link.child.id)" class="rounded-lg px-2.5 py-1 text-xs font-medium text-moss-dark bg-moss/10 hover:bg-moss/20 transition-colors">
+                    {{ reviewButtonLabel(link.child.id) }}
+                  </button>
                   <button type="button" (click)="unlink(link.id)" class="rounded-lg px-2.5 py-1 text-xs font-medium text-muted hover:bg-cloud/60 hover:text-ink transition-colors">
                     Unlink
                   </button>
@@ -175,6 +180,40 @@ import { resizeAndCompressImage } from '../../core/utils/image';
                     @if (p.school_name) { <p>School: {{ p.school_name }}</p> }
                     @if (p.location_city || p.location_country) { <p>{{ formatLocation(p) }}</p> }
                     @if (p.tagline) { <p class="italic mt-1">"{{ p.tagline }}"</p> }
+                  </div>
+                }
+                @if (expandedReviewId() === link.child.id) {
+                  <div class="mt-3 pt-3 border-t border-cloud flex flex-col gap-3">
+                    @if (pendingReviewItems(link.child.id).length === 0 && publishedItems(link.child.id).length === 0) {
+                      <p class="text-sm text-muted">Nothing to review right now.</p>
+                    }
+                    @for (item of pendingReviewItems(link.child.id); track item.id) {
+                      <div class="rounded-xl border border-cloud p-3">
+                        <p class="text-sm font-medium text-ink">{{ item.title || '(untitled)' }}</p>
+                        @if (item.summary) {
+                          <p class="text-xs text-muted mt-1">{{ item.summary }}</p>
+                        }
+                        <div class="flex gap-2 mt-2">
+                          <button type="button" (click)="approve(link.child.id, item.id)" class="rounded-lg bg-moss/10 px-2.5 py-1 text-xs font-medium text-moss-dark hover:bg-moss/20 transition-colors">
+                            Approve
+                          </button>
+                          <button type="button" (click)="reject(link.child.id, item.id)" class="rounded-lg px-2.5 py-1 text-xs font-medium text-muted hover:bg-cloud/60 hover:text-ink transition-colors">
+                            Reject
+                          </button>
+                        </div>
+                      </div>
+                    }
+                    @if (publishedItems(link.child.id).length > 0) {
+                      <p class="text-xs font-medium text-muted">Published</p>
+                      @for (item of publishedItems(link.child.id); track item.id) {
+                        <div class="rounded-xl border border-cloud p-3 flex items-center justify-between gap-3">
+                          <p class="text-sm text-ink">{{ item.title || '(untitled)' }}</p>
+                          <button type="button" (click)="unpublish(link.child.id, item.id)" class="rounded-lg bg-amber/10 px-2.5 py-1 text-xs font-medium text-amber hover:bg-amber/20 transition-colors shrink-0">
+                            Unpublish
+                          </button>
+                        </div>
+                      }
+                    }
                   </div>
                 }
               </div>
@@ -245,6 +284,7 @@ export default class ProfileComponent {
   private readonly userProfile = inject(UserProfileService);
   private readonly family = inject(FamilyService);
   private readonly auth = inject(AuthService);
+  private readonly blog = inject(BlogService);
 
   readonly me = this.userProfile.me;
 
@@ -279,6 +319,9 @@ export default class ProfileComponent {
   readonly expandedUserId = signal<string | null>(null);
   readonly expandedProfile = signal<UserLinkedProfile | null>(null);
 
+  readonly reviewContent = signal<Map<string, ContentListItem[]>>(new Map());
+  readonly expandedReviewId = signal<string | null>(null);
+
   constructor() {
     effect(() => {
       const profile = this.me();
@@ -301,6 +344,11 @@ export default class ProfileComponent {
         if (!this.childSummaries().has(link.child.id)) {
           void this.family.childSummary(link.child.id).then((summary) => {
             this.childSummaries.update((map) => new Map(map).set(link.child.id, summary));
+          });
+        }
+        if (!this.reviewContent().has(link.child.id)) {
+          void this.family.childContent(link.child.id).then((content) => {
+            this.reviewContent.update((map) => new Map(map).set(link.child.id, content));
           });
         }
       }
@@ -362,6 +410,48 @@ export default class ProfileComponent {
     }
     this.expandedUserId.set(userId);
     this.expandedProfile.set(await this.userProfile.linkedProfile(userId));
+  }
+
+  pendingReviewItems(childId: string): ContentListItem[] {
+    return (this.reviewContent().get(childId) ?? []).filter((item) => item.status === 'pending_review');
+  }
+
+  publishedItems(childId: string): ContentListItem[] {
+    return (this.reviewContent().get(childId) ?? []).filter((item) => item.status === 'published');
+  }
+
+  reviewButtonLabel(childId: string): string {
+    if (this.expandedReviewId() === childId) return 'Hide';
+    const count = this.pendingReviewItems(childId).length;
+    return count > 0 ? `Review ${count} post${count === 1 ? '' : 's'}` : 'Manage posts';
+  }
+
+  toggleReview(childId: string): void {
+    this.expandedReviewId.set(this.expandedReviewId() === childId ? null : childId);
+  }
+
+  private async refreshChildContent(childId: string): Promise<void> {
+    const [content, summary] = await Promise.all([
+      this.family.childContent(childId),
+      this.family.childSummary(childId),
+    ]);
+    this.reviewContent.update((map) => new Map(map).set(childId, content));
+    this.childSummaries.update((map) => new Map(map).set(childId, summary));
+  }
+
+  async approve(childId: string, contentId: string): Promise<void> {
+    await this.blog.publish(contentId);
+    await this.refreshChildContent(childId);
+  }
+
+  async reject(childId: string, contentId: string): Promise<void> {
+    await this.blog.backToDraft(contentId);
+    await this.refreshChildContent(childId);
+  }
+
+  async unpublish(childId: string, contentId: string): Promise<void> {
+    await this.blog.archive(contentId);
+    await this.refreshChildContent(childId);
   }
 
   // The party in a request that isn't the current user.

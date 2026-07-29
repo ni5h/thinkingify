@@ -62,7 +62,7 @@ export class FamilyService {
     return await firstValueFrom(this.http.get<ChildSummary>(`/api/v1/family/children/${childId}/summary`));
   }
 
-  childContentResource(childId: string) {
-    return httpResource<ContentListItem[]>(() => `/api/v1/family/children/${childId}/content`);
+  async childContent(childId: string): Promise<ContentListItem[]> {
+    return await firstValueFrom(this.http.get<ContentListItem[]>(`/api/v1/family/children/${childId}/content`));
   }
 }
