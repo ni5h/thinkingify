@@ -18,6 +18,45 @@ _logger = logging.getLogger(__name__)
 # instead of the endpoint continuing to call Anthropic.
 _MAX_MESSAGES_PER_SESSION = 40
 
+# This service's own forced tool-choice schema — anthropic_client.
+# send_structured only guarantees a dict came back from this named tool,
+# not that any particular key is present, so `reply`/`ladder_level`/
+# `direct_answer_requested` are still read defensively below.
+_SUBMIT_REPLY_TOOL = {
+    "name": "submit_reply",
+    "description": (
+        "Submit your reply to the kid, along with your assessment of this turn. "
+        "Always call this tool instead of replying directly."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "reply": {
+                "type": "string",
+                "description": "Your warm, short, in-character reply to show the kid directly.",
+            },
+            "ladder_level": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 4,
+                "description": (
+                    "How far up the response ladder this reply sits: 1=open question, "
+                    "2=point to their own notes/material, 3=reduce scope, 4=process nudge. "
+                    "Use 1 unless the kid is still stuck on the exact same thing as last turn."
+                ),
+            },
+            "direct_answer_requested": {
+                "type": "boolean",
+                "description": (
+                    "True if the kid's message was asking you to just give them the "
+                    "answer or write the content for them directly."
+                ),
+            },
+        },
+        "required": ["reply", "ladder_level", "direct_answer_requested"],
+    },
+}
+
 _STYLE_LABELS: dict[str, str] = {
     "fairy_tale": "Fairy Tale",
     "news_report": "News Report",
@@ -248,7 +287,9 @@ async def send_message(
             consecutive_direct_answer_count=consecutive_direct_answer_count,
         )
         tool_input = await anthropic_client.send_structured(
-            system=system_prompt, messages=_to_anthropic_messages(session_messages)
+            system=system_prompt,
+            messages=_to_anthropic_messages(session_messages),
+            tool=_SUBMIT_REPLY_TOOL,
         )
         reply = str(tool_input["reply"])
         ladder_level = int(tool_input.get("ladder_level", current_ladder_level))

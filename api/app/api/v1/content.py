@@ -9,7 +9,8 @@ from app.core.deps import get_current_user
 from app.models.user import User
 from app.schemas.companion import CompanionMessageCreate, CompanionMessageOut
 from app.schemas.content import ContentCreate, ContentListItem, ContentOut, ContentUpdate
-from app.services import companion_service, content_service, family_service
+from app.schemas.spelling import SpellingAttemptRequest, SpellingCheckRequest, SpellingFlagOut
+from app.services import companion_service, content_service, family_service, spelling_service
 
 router = APIRouter(prefix="/content", tags=["content"])
 
@@ -209,3 +210,58 @@ async def send_companion_message(
 ):
     content = await _get_owned_or_404(db, content_id, current_user)
     return await companion_service.send_message(db, current_user, content, body.session_id, body.body)
+
+
+# --- Spelling check ---
+
+
+async def _get_owned_flag_or_404(db: AsyncSession, content_id: uuid.UUID, flag_id: uuid.UUID, current_user: User):
+    content = await _get_owned_or_404(db, content_id, current_user)
+    flag = await spelling_service.get_flag(db, flag_id)
+    if flag is None or flag.content_id != content.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Spelling flag not found.")
+    return content, flag
+
+
+@router.get("/{content_id}/spelling/flags", response_model=list[SpellingFlagOut])
+async def list_spelling_flags(
+    content_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    content = await _get_owned_or_404(db, content_id, current_user)
+    return await spelling_service.list_pending(db, content)
+
+
+@router.post("/{content_id}/spelling/check", response_model=list[SpellingFlagOut])
+async def check_spelling(
+    content_id: uuid.UUID,
+    body: SpellingCheckRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    content = await _get_owned_or_404(db, content_id, current_user)
+    return await spelling_service.run_check(db, content, body.text)
+
+
+@router.post("/{content_id}/spelling/flags/{flag_id}/attempt", response_model=SpellingFlagOut)
+async def attempt_spelling_fix(
+    content_id: uuid.UUID,
+    flag_id: uuid.UUID,
+    body: SpellingAttemptRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    content, flag = await _get_owned_flag_or_404(db, content_id, flag_id, current_user)
+    return await spelling_service.attempt_fix(db, content, flag, body.word)
+
+
+@router.post("/{content_id}/spelling/flags/{flag_id}/override", response_model=SpellingFlagOut)
+async def override_spelling_flag(
+    content_id: uuid.UUID,
+    flag_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    _, flag = await _get_owned_flag_or_404(db, content_id, flag_id, current_user)
+    return await spelling_service.override(db, flag)

@@ -5,6 +5,7 @@ import { Markdown } from '@tiptap/markdown';
 import { Placeholder } from '@tiptap/extension-placeholder';
 import { EditorToolbarComponent } from '../../../../shared/components/editor-toolbar/editor-toolbar.component';
 import { applyToolbarCommand, computeActiveMarks, ToolbarCommand } from '../../../../shared/components/editor-toolbar/apply-toolbar-command';
+import { applyWordCorrection } from '../../../../shared/utils/apply-word-correction';
 import { ScaffoldSection } from '../style-scaffolds';
 
 /**
@@ -74,6 +75,32 @@ export class SectionEditorComponent implements AfterViewInit, OnDestroy {
   /** Called by the parent right after revealing this section. */
   focusEditor(): void {
     this.editor?.commands.focus('end');
+  }
+
+  /** Plain text of this section only — the spelling check runs against
+   * this, never against sectionContent()/saved markdown, so a flagged
+   * word can only ever have come from a currently-mounted section. */
+  getPlainText(): string {
+    return this.editor?.getText() ?? '';
+  }
+
+  /** Called by the parent for every mounted section (not just the first
+   * match) once a flagged word is confirmed fixed — the same word can
+   * legitimately appear in more than one section. Returns whether this
+   * section actually contained the word, so the parent can tell whether
+   * anything changed. */
+  applyCorrection(oldWord: string, newWord: string): boolean {
+    if (!this.editor) return false;
+    const current = this.editor.getMarkdown();
+    const replaced = applyWordCorrection(current, oldWord, newWord);
+    if (replaced === null) return false;
+    this.editor.commands.setContent(replaced, { contentType: 'markdown' });
+    this.syncActiveMarks();
+    // Don't rely on setContent's onUpdate firing on its own — emit
+    // explicitly so the parent's sectionContent signal never goes stale
+    // and a later autosave can't silently revert this fix.
+    this.markdownChange.emit(replaced);
+    return true;
   }
 
   private syncActiveMarks(): void {
