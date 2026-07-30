@@ -6,6 +6,7 @@ import { Placeholder } from '@tiptap/extension-placeholder';
 import { EditorToolbarComponent } from '../../../../shared/components/editor-toolbar/editor-toolbar.component';
 import { applyToolbarCommand, computeActiveMarks, ToolbarCommand } from '../../../../shared/components/editor-toolbar/apply-toolbar-command';
 import { applyWordCorrection } from '../../../../shared/utils/apply-word-correction';
+import { applySentenceCorrection as applySentenceCorrectionText } from '../../../../shared/utils/apply-sentence-correction';
 import { ScaffoldSection } from '../style-scaffolds';
 
 /**
@@ -99,6 +100,19 @@ export class SectionEditorComponent implements AfterViewInit, OnDestroy {
     // Don't rely on setContent's onUpdate firing on its own — emit
     // explicitly so the parent's sectionContent signal never goes stale
     // and a later autosave can't silently revert this fix.
+    this.markdownChange.emit(replaced);
+    return true;
+  }
+
+  /** Same contract as applyCorrection() above, but for a whole rewritten
+   * sentence (the Grammar gate) rather than a single word. */
+  applySentenceCorrection(oldSentence: string, newSentence: string): boolean {
+    if (!this.editor) return false;
+    const current = this.editor.getMarkdown();
+    const replaced = applySentenceCorrectionText(current, oldSentence, newSentence);
+    if (replaced === null) return false;
+    this.editor.commands.setContent(replaced, { contentType: 'markdown' });
+    this.syncActiveMarks();
     this.markdownChange.emit(replaced);
     return true;
   }

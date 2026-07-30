@@ -20,11 +20,15 @@ import { NoteService } from '../../../core/services/note.service';
 import { FamilyService } from '../../../core/services/family.service';
 import { SpellingService } from '../../../core/services/spelling.service';
 import { SpellingFlag } from '../../../core/models/spelling';
+import { GrammarService } from '../../../core/services/grammar.service';
+import { GrammarFlag } from '../../../core/models/grammar';
 import { NotesPanelComponent } from '../../../shared/components/notes-panel/notes-panel.component';
 import { EditorToolbarComponent } from '../../../shared/components/editor-toolbar/editor-toolbar.component';
 import { applyToolbarCommand, computeActiveMarks, ToolbarCommand } from '../../../shared/components/editor-toolbar/apply-toolbar-command';
 import { SpellingCheckPanelComponent } from '../../../shared/components/spelling-check-panel/spelling-check-panel.component';
+import { GrammarCheckPanelComponent } from '../../../shared/components/grammar-check-panel/grammar-check-panel.component';
 import { applyWordCorrection } from '../../../shared/utils/apply-word-correction';
+import { applySentenceCorrection } from '../../../shared/utils/apply-sentence-correction';
 import { SectionEditorComponent } from './section-editor/section-editor.component';
 import { CompanionPanelComponent } from './companion-panel/companion-panel.component';
 import { StyleScaffold } from './style-scaffolds';
@@ -45,6 +49,7 @@ type EditorViewMode = 'loading' | 'scaffolded' | 'blank';
     SectionEditorComponent,
     CompanionPanelComponent,
     SpellingCheckPanelComponent,
+    GrammarCheckPanelComponent,
   ],
   template: `
     <a routerLink="/rowling" class="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-muted hover:bg-cloud/60 hover:text-ink transition-colors">
@@ -149,6 +154,14 @@ type EditorViewMode = 'loading' | 'scaffolded' | 'blank';
               (correctionApplied)="onCorrectionApplied($event)"
               (allResolved)="onSpellingAllResolved()"
             />
+          } @else if (grammarFlags(); as gflags) {
+            <app-grammar-check-panel
+              class="block mt-4"
+              [flags]="gflags"
+              [contentId]="postId"
+              (correctionApplied)="onGrammarCorrectionApplied($event)"
+              (allResolved)="onGrammarAllResolved()"
+            />
           } @else {
             <button
               type="button"
@@ -194,6 +207,7 @@ export default class WritingStudioComponent implements OnInit, OnDestroy {
   private readonly blog = inject(BlogService);
   private readonly noteService = inject(NoteService);
   private readonly spelling = inject(SpellingService);
+  private readonly grammar = inject(GrammarService);
   private readonly route = inject(ActivatedRoute);
   readonly family = inject(FamilyService);
 
@@ -234,6 +248,7 @@ export default class WritingStudioComponent implements OnInit, OnDestroy {
 
   readonly topicId = signal<string | null>(null);
   readonly spellingFlags = signal<SpellingFlag[] | null>(null);
+  readonly grammarFlags = signal<GrammarFlag[] | null>(null);
   private editor?: Editor;
   private autosaveTimer?: ReturnType<typeof setTimeout>;
 
@@ -278,11 +293,18 @@ export default class WritingStudioComponent implements OnInit, OnDestroy {
 
     // Session continuity: a kid returning to a draft with still-pending
     // flags from a previous check sees them immediately, without needing
-    // to click Publish again first.
+    // to click Publish again first. Same priority order as the gate
+    // itself — Spelling first, Grammar only once Spelling is clear — so
+    // a kid resumes at whichever stage they left off on.
     if (!this.published() && !this.submittedForReview()) {
       try {
-        const flags = await this.spelling.list(this.postId);
-        if (flags.length > 0) this.spellingFlags.set(flags);
+        const spellingFlags = await this.spelling.list(this.postId);
+        if (spellingFlags.length > 0) {
+          this.spellingFlags.set(spellingFlags);
+        } else {
+          const grammarFlags = await this.grammar.list(this.postId);
+          if (grammarFlags.length > 0) this.grammarFlags.set(grammarFlags);
+        }
       } catch {
         // Non-critical — the kid can still just click Publish and re-check then.
       }
@@ -409,11 +431,37 @@ export default class WritingStudioComponent implements OnInit, OnDestroy {
     }
   }
 
+  // Same "call every mounted section unconditionally" reasoning as
+  // applyCorrectionAcrossEditors, for a whole rewritten sentence instead
+  // of a single word.
+  private applySentenceCorrectionAcrossEditors(oldSentence: string, newSentence: string): void {
+    if (this.mode() === 'scaffolded') {
+      for (const sectionEditor of this.sectionEditors()) {
+        sectionEditor.applySentenceCorrection(oldSentence, newSentence);
+      }
+      return;
+    }
+    if (!this.editor) return;
+    const replaced = applySentenceCorrection(this.editor.getMarkdown(), oldSentence, newSentence);
+    if (replaced !== null) {
+      this.editor.commands.setContent(replaced, { contentType: 'markdown' });
+      this.syncActiveMarks();
+    }
+  }
+
   onCorrectionApplied(event: { oldWord: string; newWord: string }): void {
     this.applyCorrectionAcrossEditors(event.oldWord, event.newWord);
   }
 
+  onGrammarCorrectionApplied(event: { oldSentence: string; newSentence: string }): void {
+    this.applySentenceCorrectionAcrossEditors(event.oldSentence, event.newSentence);
+  }
+
   async onSpellingAllResolved(): Promise<void> {
+    await this.attemptPublish();
+  }
+
+  async onGrammarAllResolved(): Promise<void> {
     await this.attemptPublish();
   }
 
@@ -433,24 +481,37 @@ export default class WritingStudioComponent implements OnInit, OnDestroy {
     }
   }
 
-  // Mandatory gate: always save, then always re-check spelling — clean
-  // writing sails straight through invisibly, flags interrupt with the
-  // panel instead of the real publish/submit call. Re-running the check
-  // (rather than trusting the panel's local "all resolved" state) closes
-  // the race where a new typo was introduced while fixing others.
+  // Mandatory gate, now two explicit sequential stages: always save,
+  // then always re-check Spelling, then — only once Spelling is clear —
+  // re-check Grammar. Clean writing sails straight through invisibly;
+  // either stage's flags interrupt with its own panel instead of the
+  // real publish/submit call. Re-running both checks (rather than
+  // trusting either panel's local "all resolved" state) closes the race
+  // where a new issue is introduced while fixing another, and running
+  // Grammar strictly after Spelling clears means "grammar suggestions on
+  // a misspelled sentence are noisy" is satisfied by construction.
   private async runGate(): Promise<void> {
     await this.blog.update(this.postId, {
       title: this.title(),
       content_markdown: this.currentMarkdown(),
     });
 
-    const flags = await this.spelling.check(this.postId, this.extractPlainText());
-    if (flags.length === 0) {
-      this.spellingFlags.set(null);
-      await this.doRealPublish();
+    const spellingFlags = await this.spelling.check(this.postId, this.extractPlainText());
+    if (spellingFlags.length > 0) {
+      this.spellingFlags.set(spellingFlags);
+      this.grammarFlags.set(null);
       return;
     }
-    this.spellingFlags.set(flags);
+    this.spellingFlags.set(null);
+
+    const grammarFlags = await this.grammar.check(this.postId, this.extractPlainText());
+    if (grammarFlags.length > 0) {
+      this.grammarFlags.set(grammarFlags);
+      return;
+    }
+    this.grammarFlags.set(null);
+
+    await this.doRealPublish();
   }
 
   private async doRealPublish(): Promise<void> {

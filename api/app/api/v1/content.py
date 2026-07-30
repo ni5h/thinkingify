@@ -9,8 +9,9 @@ from app.core.deps import get_current_user
 from app.models.user import User
 from app.schemas.companion import CompanionMessageCreate, CompanionMessageOut
 from app.schemas.content import ContentCreate, ContentListItem, ContentOut, ContentUpdate
+from app.schemas.grammar import GrammarAttemptRequest, GrammarCheckRequest, GrammarFlagOut
 from app.schemas.spelling import SpellingAttemptRequest, SpellingCheckRequest, SpellingFlagOut
-from app.services import companion_service, content_service, family_service, spelling_service
+from app.services import companion_service, content_service, family_service, grammar_service, spelling_service
 
 router = APIRouter(prefix="/content", tags=["content"])
 
@@ -265,3 +266,62 @@ async def override_spelling_flag(
 ):
     _, flag = await _get_owned_flag_or_404(db, content_id, flag_id, current_user)
     return await spelling_service.override(db, flag)
+
+
+# --- Grammar check ---
+
+
+async def _get_owned_grammar_flag_or_404(db: AsyncSession, content_id: uuid.UUID, flag_id: uuid.UUID, current_user: User):
+    content = await _get_owned_or_404(db, content_id, current_user)
+    flag = await grammar_service.get_flag(db, flag_id)
+    if flag is None or flag.content_id != content.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Grammar flag not found.")
+    return content, flag
+
+
+@router.get("/{content_id}/grammar/flags", response_model=list[GrammarFlagOut])
+async def list_grammar_flags(
+    content_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    content = await _get_owned_or_404(db, content_id, current_user)
+    flags = await grammar_service.list_pending(db, content)
+    return [grammar_service.to_out(f) for f in flags]
+
+
+@router.post("/{content_id}/grammar/check", response_model=list[GrammarFlagOut])
+async def check_grammar(
+    content_id: uuid.UUID,
+    body: GrammarCheckRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    content = await _get_owned_or_404(db, content_id, current_user)
+    flags = await grammar_service.run_check(db, content, body.text)
+    return [grammar_service.to_out(f) for f in flags]
+
+
+@router.post("/{content_id}/grammar/flags/{flag_id}/attempt", response_model=GrammarFlagOut)
+async def attempt_grammar_fix(
+    content_id: uuid.UUID,
+    flag_id: uuid.UUID,
+    body: GrammarAttemptRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    _, flag = await _get_owned_grammar_flag_or_404(db, content_id, flag_id, current_user)
+    updated = await grammar_service.attempt_fix(db, flag, body.sentence)
+    return grammar_service.to_out(updated)
+
+
+@router.post("/{content_id}/grammar/flags/{flag_id}/override", response_model=GrammarFlagOut)
+async def override_grammar_flag(
+    content_id: uuid.UUID,
+    flag_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    _, flag = await _get_owned_grammar_flag_or_404(db, content_id, flag_id, current_user)
+    updated = await grammar_service.override(db, flag)
+    return grammar_service.to_out(updated)
