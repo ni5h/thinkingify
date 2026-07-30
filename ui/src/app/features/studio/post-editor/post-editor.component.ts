@@ -10,10 +10,14 @@ import { BlogService } from '../../../core/services/blog.service';
 import { FamilyService } from '../../../core/services/family.service';
 import { SpellingService } from '../../../core/services/spelling.service';
 import { SpellingFlag } from '../../../core/models/spelling';
+import { GrammarService } from '../../../core/services/grammar.service';
+import { GrammarFlag } from '../../../core/models/grammar';
 import { resizeAndCompressImage } from '../../../core/utils/image';
 import { ContentStatus } from '../../../core/models/content';
 import { SpellingCheckPanelComponent } from '../../../shared/components/spelling-check-panel/spelling-check-panel.component';
+import { GrammarCheckPanelComponent } from '../../../shared/components/grammar-check-panel/grammar-check-panel.component';
 import { applyWordCorrection } from '../../../shared/utils/apply-word-correction';
+import { applySentenceCorrection } from '../../../shared/utils/apply-sentence-correction';
 
 const AUTOSAVE_DELAY_MS = 3000;
 const WORDS_PER_MINUTE = 200;
@@ -21,7 +25,7 @@ const WORDS_PER_MINUTE = 200;
 @Component({
   selector: 'app-studio-post-editor',
   standalone: true,
-  imports: [RouterLink, SpellingCheckPanelComponent],
+  imports: [RouterLink, SpellingCheckPanelComponent, GrammarCheckPanelComponent],
   template: `
     <a routerLink="/studio/posts" class="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-muted hover:bg-cloud/60 hover:text-ink transition-colors">
       &larr; Back to posts
@@ -110,13 +114,20 @@ const WORDS_PER_MINUTE = 200;
           (correctionApplied)="onCorrectionApplied($event)"
           (allResolved)="onSpellingAllResolved()"
         />
+      } @else if (grammarFlags(); as gflags) {
+        <app-grammar-check-panel
+          [flags]="gflags"
+          [contentId]="postId!"
+          (correctionApplied)="onGrammarCorrectionApplied($event)"
+          (allResolved)="onGrammarAllResolved()"
+        />
       }
 
       <div class="flex flex-wrap gap-3 mt-2">
         <button type="button" (click)="save()" [disabled]="saving()" class="rounded-xl bg-moss px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-moss-dark transition-colors disabled:opacity-60">
           {{ saving() ? 'Saving…' : 'Save' }}
         </button>
-        @if (postId && status() === 'draft' && !spellingFlags()) {
+        @if (postId && status() === 'draft' && !spellingFlags() && !grammarFlags()) {
           <button
             type="button"
             (click)="publish()"
@@ -147,6 +158,7 @@ export default class StudioPostEditorComponent implements AfterViewInit, OnDestr
   private readonly blog = inject(BlogService);
   readonly family = inject(FamilyService);
   private readonly spelling = inject(SpellingService);
+  private readonly grammar = inject(GrammarService);
   private readonly http = inject(HttpClient);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -165,6 +177,7 @@ export default class StudioPostEditorComponent implements AfterViewInit, OnDestr
   readonly error = signal<string | null>(null);
   readonly autosaveStatus = signal<string | null>(null);
   readonly spellingFlags = signal<SpellingFlag[] | null>(null);
+  readonly grammarFlags = signal<GrammarFlag[] | null>(null);
 
   private readonly activeMarks = signal<Set<string>>(new Set());
   readonly maximized = signal(false);
@@ -208,11 +221,18 @@ export default class StudioPostEditorComponent implements AfterViewInit, OnDestr
     this.syncWordCount();
 
     // Session continuity: a returning kid sees still-pending flags from a
-    // previous check without needing to click Publish again first.
+    // previous check without needing to click Publish again first. Same
+    // priority order as the gate itself — Spelling first, Grammar only
+    // once Spelling is clear.
     if (this.postId && this.status() === 'draft') {
       try {
-        const flags = await this.spelling.list(this.postId);
-        if (flags.length > 0) this.spellingFlags.set(flags);
+        const spellingFlags = await this.spelling.list(this.postId);
+        if (spellingFlags.length > 0) {
+          this.spellingFlags.set(spellingFlags);
+        } else {
+          const grammarFlags = await this.grammar.list(this.postId);
+          if (grammarFlags.length > 0) this.grammarFlags.set(grammarFlags);
+        }
       } catch {
         // Non-critical — the kid can still just click Publish and re-check then.
       }
@@ -379,11 +399,27 @@ export default class StudioPostEditorComponent implements AfterViewInit, OnDestr
     this.syncWordCount();
   }
 
+  private applySentenceCorrectionInEditor(oldSentence: string, newSentence: string): void {
+    const replaced = applySentenceCorrection(this.editor.getMarkdown(), oldSentence, newSentence);
+    if (replaced === null) return;
+    this.editor.commands.setContent(replaced, { contentType: 'markdown' });
+    this.syncActiveMarks();
+    this.syncWordCount();
+  }
+
   onCorrectionApplied(event: { oldWord: string; newWord: string }): void {
     this.applyCorrectionInEditor(event.oldWord, event.newWord);
   }
 
+  onGrammarCorrectionApplied(event: { oldSentence: string; newSentence: string }): void {
+    this.applySentenceCorrectionInEditor(event.oldSentence, event.newSentence);
+  }
+
   async onSpellingAllResolved(): Promise<void> {
+    await this.attemptPublish();
+  }
+
+  async onGrammarAllResolved(): Promise<void> {
     await this.attemptPublish();
   }
 
@@ -412,8 +448,9 @@ export default class StudioPostEditorComponent implements AfterViewInit, OnDestr
     }
   }
 
-  // Mandatory gate, mirroring the Writing Studio: always save, then always
-  // re-check spelling before the real publish/submit call. Clean writing
+  // Mandatory gate, mirroring the Writing Studio: always save, then
+  // always re-check Spelling, then — only once Spelling is clear —
+  // re-check Grammar, before the real publish/submit call. Clean writing
   // sails straight through invisibly.
   private async runGate(): Promise<void> {
     const postId = this.postId!;
@@ -424,18 +461,27 @@ export default class StudioPostEditorComponent implements AfterViewInit, OnDestr
       feature_image_url: this.featureImageUrl(),
     });
 
-    const flags = await this.spelling.check(postId, this.editor.getText());
-    if (flags.length === 0) {
-      this.spellingFlags.set(null);
-      if (this.family.hasAcceptedGuardian()) {
-        await this.blog.submitForReview(postId);
-        this.status.set('pending_review');
-      } else {
-        await this.blog.selfPublish(postId);
-        this.status.set('published');
-      }
+    const spellingFlags = await this.spelling.check(postId, this.editor.getText());
+    if (spellingFlags.length > 0) {
+      this.spellingFlags.set(spellingFlags);
+      this.grammarFlags.set(null);
       return;
     }
-    this.spellingFlags.set(flags);
+    this.spellingFlags.set(null);
+
+    const grammarFlags = await this.grammar.check(postId, this.editor.getText());
+    if (grammarFlags.length > 0) {
+      this.grammarFlags.set(grammarFlags);
+      return;
+    }
+    this.grammarFlags.set(null);
+
+    if (this.family.hasAcceptedGuardian()) {
+      await this.blog.submitForReview(postId);
+      this.status.set('pending_review');
+    } else {
+      await this.blog.selfPublish(postId);
+      this.status.set('published');
+    }
   }
 }
