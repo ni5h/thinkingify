@@ -10,8 +10,20 @@ from app.models.user import User
 from app.schemas.companion import CompanionMessageCreate, CompanionMessageOut
 from app.schemas.content import ContentCreate, ContentListItem, ContentOut, ContentUpdate
 from app.schemas.grammar import GrammarAttemptRequest, GrammarCheckRequest, GrammarFlagOut
+from app.schemas.sentence_framing import (
+    SentenceFramingAttemptRequest,
+    SentenceFramingCheckRequest,
+    SentenceFramingFlagOut,
+)
 from app.schemas.spelling import SpellingAttemptRequest, SpellingCheckRequest, SpellingFlagOut
-from app.services import companion_service, content_service, family_service, grammar_service, spelling_service
+from app.services import (
+    companion_service,
+    content_service,
+    family_service,
+    grammar_service,
+    sentence_framing_service,
+    spelling_service,
+)
 
 router = APIRouter(prefix="/content", tags=["content"])
 
@@ -325,3 +337,64 @@ async def override_grammar_flag(
     _, flag = await _get_owned_grammar_flag_or_404(db, content_id, flag_id, current_user)
     updated = await grammar_service.override(db, flag)
     return grammar_service.to_out(updated)
+
+
+# --- Sentence framing check ---
+
+
+async def _get_owned_sentence_framing_flag_or_404(
+    db: AsyncSession, content_id: uuid.UUID, flag_id: uuid.UUID, current_user: User
+):
+    content = await _get_owned_or_404(db, content_id, current_user)
+    flag = await sentence_framing_service.get_flag(db, flag_id)
+    if flag is None or flag.content_id != content.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sentence framing flag not found.")
+    return content, flag
+
+
+@router.get("/{content_id}/sentence-framing/flags", response_model=list[SentenceFramingFlagOut])
+async def list_sentence_framing_flags(
+    content_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    content = await _get_owned_or_404(db, content_id, current_user)
+    flags = await sentence_framing_service.list_pending(db, content)
+    return [sentence_framing_service.to_out(f) for f in flags]
+
+
+@router.post("/{content_id}/sentence-framing/check", response_model=list[SentenceFramingFlagOut])
+async def check_sentence_framing(
+    content_id: uuid.UUID,
+    body: SentenceFramingCheckRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    content = await _get_owned_or_404(db, content_id, current_user)
+    flags = await sentence_framing_service.run_check(db, content, body.sections)
+    return [sentence_framing_service.to_out(f) for f in flags]
+
+
+@router.post("/{content_id}/sentence-framing/flags/{flag_id}/attempt", response_model=SentenceFramingFlagOut)
+async def attempt_sentence_framing_fix(
+    content_id: uuid.UUID,
+    flag_id: uuid.UUID,
+    body: SentenceFramingAttemptRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    _, flag = await _get_owned_sentence_framing_flag_or_404(db, content_id, flag_id, current_user)
+    updated = await sentence_framing_service.attempt_fix(db, flag, body.sentences)
+    return sentence_framing_service.to_out(updated)
+
+
+@router.post("/{content_id}/sentence-framing/flags/{flag_id}/override", response_model=SentenceFramingFlagOut)
+async def override_sentence_framing_flag(
+    content_id: uuid.UUID,
+    flag_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    _, flag = await _get_owned_sentence_framing_flag_or_404(db, content_id, flag_id, current_user)
+    updated = await sentence_framing_service.override(db, flag)
+    return sentence_framing_service.to_out(updated)

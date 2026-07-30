@@ -22,11 +22,14 @@ import { SpellingService } from '../../../core/services/spelling.service';
 import { SpellingFlag } from '../../../core/models/spelling';
 import { GrammarService } from '../../../core/services/grammar.service';
 import { GrammarFlag } from '../../../core/models/grammar';
+import { SentenceFramingService } from '../../../core/services/sentence-framing.service';
+import { SentenceFramingFlag } from '../../../core/models/sentence-framing';
 import { NotesPanelComponent } from '../../../shared/components/notes-panel/notes-panel.component';
 import { EditorToolbarComponent } from '../../../shared/components/editor-toolbar/editor-toolbar.component';
 import { applyToolbarCommand, computeActiveMarks, ToolbarCommand } from '../../../shared/components/editor-toolbar/apply-toolbar-command';
 import { SpellingCheckPanelComponent } from '../../../shared/components/spelling-check-panel/spelling-check-panel.component';
 import { GrammarCheckPanelComponent } from '../../../shared/components/grammar-check-panel/grammar-check-panel.component';
+import { SentenceFramingCheckPanelComponent } from '../../../shared/components/sentence-framing-check-panel/sentence-framing-check-panel.component';
 import { applyWordCorrection } from '../../../shared/utils/apply-word-correction';
 import { applySentenceCorrection } from '../../../shared/utils/apply-sentence-correction';
 import { SectionEditorComponent } from './section-editor/section-editor.component';
@@ -50,6 +53,7 @@ type EditorViewMode = 'loading' | 'scaffolded' | 'blank';
     CompanionPanelComponent,
     SpellingCheckPanelComponent,
     GrammarCheckPanelComponent,
+    SentenceFramingCheckPanelComponent,
   ],
   template: `
     <a routerLink="/rowling" class="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-muted hover:bg-cloud/60 hover:text-ink transition-colors">
@@ -162,6 +166,14 @@ type EditorViewMode = 'loading' | 'scaffolded' | 'blank';
               (correctionApplied)="onGrammarCorrectionApplied($event)"
               (allResolved)="onGrammarAllResolved()"
             />
+          } @else if (sentenceFramingFlags(); as sflags) {
+            <app-sentence-framing-check-panel
+              class="block mt-4"
+              [flags]="sflags"
+              [contentId]="postId"
+              (correctionApplied)="onSentenceFramingCorrectionApplied($event)"
+              (allResolved)="onSentenceFramingAllResolved()"
+            />
           } @else {
             <button
               type="button"
@@ -208,6 +220,7 @@ export default class WritingStudioComponent implements OnInit, OnDestroy {
   private readonly noteService = inject(NoteService);
   private readonly spelling = inject(SpellingService);
   private readonly grammar = inject(GrammarService);
+  private readonly sentenceFraming = inject(SentenceFramingService);
   private readonly route = inject(ActivatedRoute);
   readonly family = inject(FamilyService);
 
@@ -249,6 +262,7 @@ export default class WritingStudioComponent implements OnInit, OnDestroy {
   readonly topicId = signal<string | null>(null);
   readonly spellingFlags = signal<SpellingFlag[] | null>(null);
   readonly grammarFlags = signal<GrammarFlag[] | null>(null);
+  readonly sentenceFramingFlags = signal<SentenceFramingFlag[] | null>(null);
   private editor?: Editor;
   private autosaveTimer?: ReturnType<typeof setTimeout>;
 
@@ -294,8 +308,9 @@ export default class WritingStudioComponent implements OnInit, OnDestroy {
     // Session continuity: a kid returning to a draft with still-pending
     // flags from a previous check sees them immediately, without needing
     // to click Publish again first. Same priority order as the gate
-    // itself — Spelling first, Grammar only once Spelling is clear — so
-    // a kid resumes at whichever stage they left off on.
+    // itself — Spelling, then Grammar, then Sentence Framing, each only
+    // once the one before it is clear — so a kid resumes at whichever
+    // stage they left off on.
     if (!this.published() && !this.submittedForReview()) {
       try {
         const spellingFlags = await this.spelling.list(this.postId);
@@ -303,7 +318,12 @@ export default class WritingStudioComponent implements OnInit, OnDestroy {
           this.spellingFlags.set(spellingFlags);
         } else {
           const grammarFlags = await this.grammar.list(this.postId);
-          if (grammarFlags.length > 0) this.grammarFlags.set(grammarFlags);
+          if (grammarFlags.length > 0) {
+            this.grammarFlags.set(grammarFlags);
+          } else {
+            const sentenceFramingFlags = await this.sentenceFraming.list(this.postId);
+            if (sentenceFramingFlags.length > 0) this.sentenceFramingFlags.set(sentenceFramingFlags);
+          }
         }
       } catch {
         // Non-critical — the kid can still just click Publish and re-check then.
@@ -413,6 +433,17 @@ export default class WritingStudioComponent implements OnInit, OnDestroy {
     return this.editor?.getText() ?? '';
   }
 
+  // Unlike extractPlainText(), keeps section boundaries intact rather
+  // than flattening them — Sentence Framing detects runs of consecutive
+  // sentences, which must never be allowed to span two sections (see
+  // runGate()'s comment on the Sentence Framing stage for why).
+  private extractSectionTexts(): string[] {
+    if (this.mode() === 'scaffolded') {
+      return this.sectionEditors().map((editor) => editor.getPlainText());
+    }
+    return [this.editor?.getText() ?? ''];
+  }
+
   // Calls every mounted section unconditionally, not just the first match
   // — the same misspelled word can legitimately appear in more than one
   // section, and dedup is document-wide, not per-section.
@@ -457,11 +488,23 @@ export default class WritingStudioComponent implements OnInit, OnDestroy {
     this.applySentenceCorrectionAcrossEditors(event.oldSentence, event.newSentence);
   }
 
+  // Same applySentenceCorrectionAcrossEditors reused verbatim — it does
+  // a plain literal substring replace with no sentence-specific logic,
+  // so it works identically whether "oldSentence" is one sentence
+  // (Grammar) or a whole flagged run of several (this stage).
+  onSentenceFramingCorrectionApplied(event: { oldSentence: string; newSentence: string }): void {
+    this.applySentenceCorrectionAcrossEditors(event.oldSentence, event.newSentence);
+  }
+
   async onSpellingAllResolved(): Promise<void> {
     await this.attemptPublish();
   }
 
   async onGrammarAllResolved(): Promise<void> {
+    await this.attemptPublish();
+  }
+
+  async onSentenceFramingAllResolved(): Promise<void> {
     await this.attemptPublish();
   }
 
@@ -481,15 +524,21 @@ export default class WritingStudioComponent implements OnInit, OnDestroy {
     }
   }
 
-  // Mandatory gate, now two explicit sequential stages: always save,
+  // Mandatory gate, now three explicit sequential stages: always save,
   // then always re-check Spelling, then — only once Spelling is clear —
-  // re-check Grammar. Clean writing sails straight through invisibly;
-  // either stage's flags interrupt with its own panel instead of the
-  // real publish/submit call. Re-running both checks (rather than
-  // trusting either panel's local "all resolved" state) closes the race
-  // where a new issue is introduced while fixing another, and running
-  // Grammar strictly after Spelling clears means "grammar suggestions on
-  // a misspelled sentence are noisy" is satisfied by construction.
+  // re-check Grammar, then — only once Grammar is clear — re-check
+  // Sentence Framing. Clean writing sails straight through invisibly;
+  // any stage's flags interrupt with its own panel instead of the real
+  // publish/submit call. Re-running every check (rather than trusting
+  // any panel's local "all resolved" state) closes the race where a new
+  // issue is introduced while fixing another. Running each stage
+  // strictly after the one before it clears means later stages never
+  // see noise from earlier, unfixed issues — the same reasoning that
+  // gates Grammar behind Spelling now also gates Sentence Framing behind
+  // Grammar. Sentence Framing uses extractSectionTexts() (boundary-
+  // preserving), not extractPlainText() (flattened) — see that method's
+  // comment for why a flattened join would risk a flagged run spanning
+  // two sections.
   private async runGate(): Promise<void> {
     await this.blog.update(this.postId, {
       title: this.title(),
@@ -500,6 +549,7 @@ export default class WritingStudioComponent implements OnInit, OnDestroy {
     if (spellingFlags.length > 0) {
       this.spellingFlags.set(spellingFlags);
       this.grammarFlags.set(null);
+      this.sentenceFramingFlags.set(null);
       return;
     }
     this.spellingFlags.set(null);
@@ -507,9 +557,17 @@ export default class WritingStudioComponent implements OnInit, OnDestroy {
     const grammarFlags = await this.grammar.check(this.postId, this.extractPlainText());
     if (grammarFlags.length > 0) {
       this.grammarFlags.set(grammarFlags);
+      this.sentenceFramingFlags.set(null);
       return;
     }
     this.grammarFlags.set(null);
+
+    const sentenceFramingFlags = await this.sentenceFraming.check(this.postId, this.extractSectionTexts());
+    if (sentenceFramingFlags.length > 0) {
+      this.sentenceFramingFlags.set(sentenceFramingFlags);
+      return;
+    }
+    this.sentenceFramingFlags.set(null);
 
     await this.doRealPublish();
   }

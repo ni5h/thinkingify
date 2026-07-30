@@ -12,10 +12,13 @@ import { SpellingService } from '../../../core/services/spelling.service';
 import { SpellingFlag } from '../../../core/models/spelling';
 import { GrammarService } from '../../../core/services/grammar.service';
 import { GrammarFlag } from '../../../core/models/grammar';
+import { SentenceFramingService } from '../../../core/services/sentence-framing.service';
+import { SentenceFramingFlag } from '../../../core/models/sentence-framing';
 import { resizeAndCompressImage } from '../../../core/utils/image';
 import { ContentStatus } from '../../../core/models/content';
 import { SpellingCheckPanelComponent } from '../../../shared/components/spelling-check-panel/spelling-check-panel.component';
 import { GrammarCheckPanelComponent } from '../../../shared/components/grammar-check-panel/grammar-check-panel.component';
+import { SentenceFramingCheckPanelComponent } from '../../../shared/components/sentence-framing-check-panel/sentence-framing-check-panel.component';
 import { applyWordCorrection } from '../../../shared/utils/apply-word-correction';
 import { applySentenceCorrection } from '../../../shared/utils/apply-sentence-correction';
 
@@ -25,7 +28,7 @@ const WORDS_PER_MINUTE = 200;
 @Component({
   selector: 'app-studio-post-editor',
   standalone: true,
-  imports: [RouterLink, SpellingCheckPanelComponent, GrammarCheckPanelComponent],
+  imports: [RouterLink, SpellingCheckPanelComponent, GrammarCheckPanelComponent, SentenceFramingCheckPanelComponent],
   template: `
     <a routerLink="/studio/posts" class="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-muted hover:bg-cloud/60 hover:text-ink transition-colors">
       &larr; Back to posts
@@ -121,13 +124,20 @@ const WORDS_PER_MINUTE = 200;
           (correctionApplied)="onGrammarCorrectionApplied($event)"
           (allResolved)="onGrammarAllResolved()"
         />
+      } @else if (sentenceFramingFlags(); as sflags) {
+        <app-sentence-framing-check-panel
+          [flags]="sflags"
+          [contentId]="postId!"
+          (correctionApplied)="onSentenceFramingCorrectionApplied($event)"
+          (allResolved)="onSentenceFramingAllResolved()"
+        />
       }
 
       <div class="flex flex-wrap gap-3 mt-2">
         <button type="button" (click)="save()" [disabled]="saving()" class="rounded-xl bg-moss px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-moss-dark transition-colors disabled:opacity-60">
           {{ saving() ? 'Saving…' : 'Save' }}
         </button>
-        @if (postId && status() === 'draft' && !spellingFlags() && !grammarFlags()) {
+        @if (postId && status() === 'draft' && !spellingFlags() && !grammarFlags() && !sentenceFramingFlags()) {
           <button
             type="button"
             (click)="publish()"
@@ -159,6 +169,7 @@ export default class StudioPostEditorComponent implements AfterViewInit, OnDestr
   readonly family = inject(FamilyService);
   private readonly spelling = inject(SpellingService);
   private readonly grammar = inject(GrammarService);
+  private readonly sentenceFraming = inject(SentenceFramingService);
   private readonly http = inject(HttpClient);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -178,6 +189,7 @@ export default class StudioPostEditorComponent implements AfterViewInit, OnDestr
   readonly autosaveStatus = signal<string | null>(null);
   readonly spellingFlags = signal<SpellingFlag[] | null>(null);
   readonly grammarFlags = signal<GrammarFlag[] | null>(null);
+  readonly sentenceFramingFlags = signal<SentenceFramingFlag[] | null>(null);
 
   private readonly activeMarks = signal<Set<string>>(new Set());
   readonly maximized = signal(false);
@@ -222,8 +234,8 @@ export default class StudioPostEditorComponent implements AfterViewInit, OnDestr
 
     // Session continuity: a returning kid sees still-pending flags from a
     // previous check without needing to click Publish again first. Same
-    // priority order as the gate itself — Spelling first, Grammar only
-    // once Spelling is clear.
+    // priority order as the gate itself — Spelling, then Grammar, then
+    // Sentence Framing, each only once the one before it is clear.
     if (this.postId && this.status() === 'draft') {
       try {
         const spellingFlags = await this.spelling.list(this.postId);
@@ -231,7 +243,12 @@ export default class StudioPostEditorComponent implements AfterViewInit, OnDestr
           this.spellingFlags.set(spellingFlags);
         } else {
           const grammarFlags = await this.grammar.list(this.postId);
-          if (grammarFlags.length > 0) this.grammarFlags.set(grammarFlags);
+          if (grammarFlags.length > 0) {
+            this.grammarFlags.set(grammarFlags);
+          } else {
+            const sentenceFramingFlags = await this.sentenceFraming.list(this.postId);
+            if (sentenceFramingFlags.length > 0) this.sentenceFramingFlags.set(sentenceFramingFlags);
+          }
         }
       } catch {
         // Non-critical — the kid can still just click Publish and re-check then.
@@ -415,11 +432,24 @@ export default class StudioPostEditorComponent implements AfterViewInit, OnDestr
     this.applySentenceCorrectionInEditor(event.oldSentence, event.newSentence);
   }
 
+  // Same applySentenceCorrectionInEditor reused verbatim — it's a plain
+  // literal substring replace with no sentence-specific logic, so it
+  // works identically whether "oldSentence" is one sentence (Grammar) or
+  // a whole flagged run of several (this stage). There's only ever one
+  // editor here, so there's no section-boundary concern to begin with.
+  onSentenceFramingCorrectionApplied(event: { oldSentence: string; newSentence: string }): void {
+    this.applySentenceCorrectionInEditor(event.oldSentence, event.newSentence);
+  }
+
   async onSpellingAllResolved(): Promise<void> {
     await this.attemptPublish();
   }
 
   async onGrammarAllResolved(): Promise<void> {
+    await this.attemptPublish();
+  }
+
+  async onSentenceFramingAllResolved(): Promise<void> {
     await this.attemptPublish();
   }
 
@@ -449,9 +479,12 @@ export default class StudioPostEditorComponent implements AfterViewInit, OnDestr
   }
 
   // Mandatory gate, mirroring the Writing Studio: always save, then
-  // always re-check Spelling, then — only once Spelling is clear —
-  // re-check Grammar, before the real publish/submit call. Clean writing
-  // sails straight through invisibly.
+  // always re-check Spelling, then Grammar once Spelling is clear, then
+  // Sentence Framing once Grammar is clear, before the real publish/
+  // submit call. Clean writing sails straight through invisibly. Only
+  // ever one editor here, so Sentence Framing's section-boundary concern
+  // (see writing-studio.component.ts's extractSectionTexts()) doesn't
+  // apply — a single-element array is always boundary-safe.
   private async runGate(): Promise<void> {
     const postId = this.postId!;
     await this.blog.update(postId, {
@@ -465,6 +498,7 @@ export default class StudioPostEditorComponent implements AfterViewInit, OnDestr
     if (spellingFlags.length > 0) {
       this.spellingFlags.set(spellingFlags);
       this.grammarFlags.set(null);
+      this.sentenceFramingFlags.set(null);
       return;
     }
     this.spellingFlags.set(null);
@@ -472,9 +506,17 @@ export default class StudioPostEditorComponent implements AfterViewInit, OnDestr
     const grammarFlags = await this.grammar.check(postId, this.editor.getText());
     if (grammarFlags.length > 0) {
       this.grammarFlags.set(grammarFlags);
+      this.sentenceFramingFlags.set(null);
       return;
     }
     this.grammarFlags.set(null);
+
+    const sentenceFramingFlags = await this.sentenceFraming.check(postId, [this.editor.getText()]);
+    if (sentenceFramingFlags.length > 0) {
+      this.sentenceFramingFlags.set(sentenceFramingFlags);
+      return;
+    }
+    this.sentenceFramingFlags.set(null);
 
     if (this.family.hasAcceptedGuardian()) {
       await this.blog.submitForReview(postId);
