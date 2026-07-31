@@ -7,7 +7,7 @@ import { APP_CONFIG } from '../../../core/config';
   selector: 'app-studio-login',
   standalone: true,
   template: `
-    <div class="mx-auto mt-16 max-w-sm rounded-2xl border border-cloud bg-white shadow-sm p-8 text-center">
+    <div class="mx-auto mt-16 max-w-sm rounded-2xl border border-cloud bg-white shadow-sm p-8 text-center relative">
       <h1 class="font-display text-2xl text-ink">Thinkingify Studio</h1>
       <p class="text-muted text-sm mt-2">Sign in with an authorized Google account to write and manage posts.</p>
 
@@ -25,11 +25,18 @@ import { APP_CONFIG } from '../../../core/config';
         <button
           type="button"
           (click)="handleDevLogin()"
-          class="rounded-xl border border-cloud bg-paper px-5 py-2.5 text-sm font-medium text-ink hover:border-moss hover:bg-cloud/60 transition-colors"
+          [disabled]="signingIn()"
+          class="rounded-xl border border-cloud bg-paper px-5 py-2.5 text-sm font-medium text-ink hover:border-moss hover:bg-cloud/60 transition-colors disabled:opacity-60"
         >
           Continue as nish (dev)
         </button>
       </div>
+
+      @if (signingIn()) {
+        <div class="absolute inset-0 rounded-2xl bg-white/90 flex items-center justify-center p-8">
+          <p class="text-sm font-medium text-muted">Signing in&hellip; this can take a moment if the server's waking up.</p>
+        </div>
+      }
     </div>
   `,
 })
@@ -43,6 +50,7 @@ export default class StudioLoginComponent implements AfterViewInit {
 
   readonly error = signal<string | null>(null);
   readonly googleUnavailable = signal(false);
+  readonly signingIn = signal(false);
 
   ngAfterViewInit(): void {
     this.initGoogleSignIn();
@@ -76,22 +84,34 @@ export default class StudioLoginComponent implements AfterViewInit {
   }
 
   private async handleCredential(idToken: string): Promise<void> {
+    // Guards against an impatient double-click firing a second sign-in
+    // while the first is still in flight (e.g. while the backend is
+    // cold-starting) — without this, Google's button has no disabled
+    // state of its own and happily fires a second concurrent request.
+    if (this.signingIn()) return;
+    this.signingIn.set(true);
     this.error.set(null);
     try {
       await this.authService.handleGoogleCredential(idToken);
       await this.router.navigateByUrl(this.returnUrl);
     } catch {
       this.error.set('Sign in failed — this Google account may not be authorized for Thinkingify Studio.');
+    } finally {
+      this.signingIn.set(false);
     }
   }
 
   async handleDevLogin(): Promise<void> {
+    if (this.signingIn()) return;
+    this.signingIn.set(true);
     this.error.set(null);
     try {
       await this.authService.devLogin();
       await this.router.navigateByUrl(this.returnUrl);
     } catch {
       this.error.set('Dev login is not enabled on this backend.');
+    } finally {
+      this.signingIn.set(false);
     }
   }
 }

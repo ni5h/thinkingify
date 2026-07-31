@@ -19,7 +19,7 @@ services:
       - key: JWT_ACCESS_TOKEN_EXPIRE_MINUTES
         value: "30"
       - key: JWT_REFRESH_TOKEN_EXPIRE_DAYS
-        value: "7"
+        value: "30"
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: SUPABASE_URL

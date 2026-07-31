@@ -20,9 +20,10 @@ export const noAuthGuard: CanActivateFn = async () => {
   return authService.isAuthenticated() ? router.createUrlTree(['/studio']) : true;
 };
 
-// Same shape as authGuard, redirecting to the Sherlock/Rowling login page
-// instead — used for /sherlock*/rowling* routes. No role check: sign-up is
-// open and access control is ownership-based, not role-based.
+// Same shape as authGuard, redirecting to the Sherlock login page
+// instead — used for /sherlock* routes only (Rowling uses the general
+// authGuard, same as /profile /settings /studio*). No role check:
+// sign-up is open and access control is ownership-based, not role-based.
 export const sherlockAuthGuard: CanActivateFn = async (_route, state: RouterStateSnapshot) => {
   const authService = inject(AuthService);
   const router = inject(Router);

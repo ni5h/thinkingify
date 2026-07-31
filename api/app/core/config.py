@@ -20,7 +20,7 @@ class Settings(BaseSettings):
 
     jwt_secret: str = "dev-secret-change-me"
     jwt_access_token_expire_minutes: int = 30
-    jwt_refresh_token_expire_days: int = 7
+    jwt_refresh_token_expire_days: int = 30
 
     google_client_id: str = ""
 
