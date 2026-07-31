@@ -7,6 +7,7 @@ import { BlogService } from '../../core/services/blog.service';
 import { AccountType, UserLinkedProfile } from '../../core/models/user';
 import { ChildSummary, FamilyLink, TargetRole } from '../../core/models/family';
 import { ContentListItem } from '../../core/models/content';
+import { ParentReport } from '../../core/models/parent-report';
 import { resizeAndCompressImage } from '../../core/utils/image';
 
 @Component({
@@ -200,6 +201,11 @@ import { resizeAndCompressImage } from '../../core/utils/image';
                           <button type="button" (click)="reject(link.child.id, item.id)" class="rounded-lg px-2.5 py-1 text-xs font-medium text-muted hover:bg-cloud/60 hover:text-ink transition-colors">
                             Reject
                           </button>
+                          @if (reportForContent(link.child.id, item.id); as report) {
+                            <a [routerLink]="['/profile/reports', link.child.id, report.id]" class="rounded-lg px-2.5 py-1 text-xs font-medium text-muted hover:bg-cloud/60 hover:text-ink transition-colors">
+                              View report
+                            </a>
+                          }
                         </div>
                       </div>
                     }
@@ -208,9 +214,16 @@ import { resizeAndCompressImage } from '../../core/utils/image';
                       @for (item of publishedItems(link.child.id); track item.id) {
                         <div class="rounded-xl border border-cloud p-3 flex items-center justify-between gap-3">
                           <p class="text-sm text-ink">{{ item.title || '(untitled)' }}</p>
-                          <button type="button" (click)="unpublish(link.child.id, item.id)" class="rounded-lg bg-amber/10 px-2.5 py-1 text-xs font-medium text-amber hover:bg-amber/20 transition-colors shrink-0">
-                            Unpublish
-                          </button>
+                          <span class="flex items-center gap-2 shrink-0">
+                            @if (reportForContent(link.child.id, item.id); as report) {
+                              <a [routerLink]="['/profile/reports', link.child.id, report.id]" class="rounded-lg px-2.5 py-1 text-xs font-medium text-muted hover:bg-cloud/60 hover:text-ink transition-colors">
+                                View report
+                              </a>
+                            }
+                            <button type="button" (click)="unpublish(link.child.id, item.id)" class="rounded-lg bg-amber/10 px-2.5 py-1 text-xs font-medium text-amber hover:bg-amber/20 transition-colors">
+                              Unpublish
+                            </button>
+                          </span>
                         </div>
                       }
                     }
@@ -321,6 +334,7 @@ export default class ProfileComponent {
 
   readonly reviewContent = signal<Map<string, ContentListItem[]>>(new Map());
   readonly expandedReviewId = signal<string | null>(null);
+  readonly childReportsMap = signal<Map<string, ParentReport[]>>(new Map());
 
   constructor() {
     effect(() => {
@@ -349,6 +363,11 @@ export default class ProfileComponent {
         if (!this.reviewContent().has(link.child.id)) {
           void this.family.childContent(link.child.id).then((content) => {
             this.reviewContent.update((map) => new Map(map).set(link.child.id, content));
+          });
+        }
+        if (!this.childReportsMap().has(link.child.id)) {
+          void this.family.childReports(link.child.id).then((reports) => {
+            this.childReportsMap.update((map) => new Map(map).set(link.child.id, reports));
           });
         }
       }
@@ -430,13 +449,23 @@ export default class ProfileComponent {
     this.expandedReviewId.set(this.expandedReviewId() === childId ? null : childId);
   }
 
+  // Most recent report for this content item, if one exists — reports
+  // list is already ordered newest-first, so the first match is the
+  // latest (a rejected-and-resubmitted piece can have more than one).
+  // Older content submitted before this feature shipped has none.
+  reportForContent(childId: string, contentId: string): ParentReport | undefined {
+    return (this.childReportsMap().get(childId) ?? []).find((r) => r.content_id === contentId);
+  }
+
   private async refreshChildContent(childId: string): Promise<void> {
-    const [content, summary] = await Promise.all([
+    const [content, summary, reports] = await Promise.all([
       this.family.childContent(childId),
       this.family.childSummary(childId),
+      this.family.childReports(childId),
     ]);
     this.reviewContent.update((map) => new Map(map).set(childId, content));
     this.childSummaries.update((map) => new Map(map).set(childId, summary));
+    this.childReportsMap.update((map) => new Map(map).set(childId, reports));
   }
 
   async approve(childId: string, contentId: string): Promise<void> {

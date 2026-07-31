@@ -3,6 +3,7 @@ import { HttpClient, httpResource } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { ChildSummary, FamilyLink, FamilyLinksOut, TargetRole } from '../models/family';
 import { ContentListItem } from '../models/content';
+import { ParentReport } from '../models/parent-report';
 import { AuthService } from './auth.service';
 
 @Injectable({ providedIn: 'root' })
@@ -64,5 +65,15 @@ export class FamilyService {
 
   async childContent(childId: string): Promise<ContentListItem[]> {
     return await firstValueFrom(this.http.get<ContentListItem[]>(`/api/v1/family/children/${childId}/content`));
+  }
+
+  async childReports(childId: string): Promise<ParentReport[]> {
+    return await firstValueFrom(this.http.get<ParentReport[]>(`/api/v1/family/children/${childId}/reports`));
+  }
+
+  async childReport(childId: string, reportId: string): Promise<ParentReport> {
+    return await firstValueFrom(
+      this.http.get<ParentReport>(`/api/v1/family/children/${childId}/reports/${reportId}`)
+    );
   }
 }

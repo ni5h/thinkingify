@@ -9,6 +9,11 @@ export const routes: Routes = [
     canActivate: [authGuard],
   },
   {
+    path: 'profile/reports/:childId/:reportId',
+    loadComponent: () => import('./features/profile/report-view/report-view.component'),
+    canActivate: [authGuard],
+  },
+  {
     path: 'settings',
     loadComponent: () => import('./features/settings/settings.component'),
     canActivate: [authGuard],
