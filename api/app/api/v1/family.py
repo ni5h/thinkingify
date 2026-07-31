@@ -1,7 +1,7 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -17,7 +17,8 @@ from app.schemas.family import (
     FamilyLinksOut,
     UserSummary,
 )
-from app.services import content_service, family_service, puzzle_service
+from app.schemas.parent_report import ParentReportOut
+from app.services import content_service, family_service, parent_report_service, puzzle_service
 
 router = APIRouter(prefix="/family", tags=["family"])
 
@@ -139,3 +140,30 @@ async def child_content(
 ):
     await family_service.assert_accepted_guardian_of(db, current_user, child_id)
     return await content_service.list_by_author(db, child_id)
+
+
+@router.get("/children/{child_id}/reports", response_model=list[ParentReportOut])
+async def child_reports(
+    child_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    await family_service.assert_accepted_guardian_of(db, current_user, child_id)
+    return await parent_report_service.list_for_child(db, child_id)
+
+
+@router.get("/children/{child_id}/reports/{report_id}", response_model=ParentReportOut)
+async def child_report(
+    child_id: uuid.UUID,
+    report_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    await family_service.assert_accepted_guardian_of(db, current_user, child_id)
+    result = await parent_report_service.get_by_id(db, report_id)
+    if result is None or result[1].author_id != child_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report not found.")
+    report, content = result
+    return ParentReportOut.model_validate(report).model_copy(
+        update={"content_title": content.title, "style": content.style}
+    )

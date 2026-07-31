@@ -1,3 +1,4 @@
+import logging
 import uuid
 from typing import Annotated
 
@@ -6,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.deps import get_current_user
+from app.models.content import Content
 from app.models.user import User
 from app.schemas.companion import CompanionMessageCreate, CompanionMessageOut
 from app.schemas.content import ContentCreate, ContentListItem, ContentOut, ContentUpdate
@@ -21,11 +23,25 @@ from app.services import (
     content_service,
     family_service,
     grammar_service,
+    parent_report_service,
     sentence_framing_service,
     spelling_service,
 )
 
+_logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/content", tags=["content"])
+
+
+async def _generate_report_fail_soft(db: AsyncSession, content: Content) -> None:
+    """Parent report generation is a secondary feature layered on top of
+    submit/publish — it must never block or fail the kid's actual
+    submit/publish response, same fail-soft philosophy as every
+    evaluation stage's own Anthropic-dependent paths."""
+    try:
+        await parent_report_service.generate_report(db, content)
+    except Exception:
+        _logger.exception("Parent report generation failed for content_id=%s", content.id)
 
 
 async def _get_owned_or_404(db: AsyncSession, content_id: uuid.UUID, current_user: User):
@@ -124,7 +140,9 @@ async def submit_for_review(
     current_user: Annotated[User, Depends(get_current_user)],
 ):
     content = await _get_owned_or_404(db, content_id, current_user)
-    return await content_service.transition(db, content, "submit_for_review")
+    updated = await content_service.transition(db, content, "submit_for_review")
+    await _generate_report_fail_soft(db, updated)
+    return updated
 
 
 @router.post("/{content_id}/back-to-draft", response_model=ContentOut)
@@ -165,7 +183,9 @@ async def self_publish(
 ):
     content = await _get_owned_or_404(db, content_id, current_user)
     await _assert_self_publish_allowed(db, current_user)
-    return await content_service.transition(db, content, "self_publish")
+    updated = await content_service.transition(db, content, "self_publish")
+    await _generate_report_fail_soft(db, updated)
+    return updated
 
 
 @router.post("/{content_id}/self-republish", response_model=ContentOut)

@@ -4,6 +4,7 @@ from app.models.content import Content, ContentStatus
 from app.models.family_link import FamilyLink, FamilyLinkStatus
 from app.models.grammar_flag import GrammarFlag, GrammarFlagStatus
 from app.models.note import Note
+from app.models.parent_report import ParentReport
 from app.models.puzzle import PuzzleAttempt, PuzzleGameProgress, PuzzleTier, next_tier
 from app.models.sentence_framing_flag import SentenceFramingFlag, SentenceFramingFlagStatus
 from app.models.spelling_flag import SpellingErrorType, SpellingFlag, SpellingFlagStatus
@@ -21,6 +22,7 @@ __all__ = [
     "GrammarFlag",
     "GrammarFlagStatus",
     "Note",
+    "ParentReport",
     "PuzzleAttempt",
     "PuzzleGameProgress",
     "PuzzleTier",
