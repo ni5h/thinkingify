@@ -44,27 +44,27 @@ export const routes: Routes = [
   {
     path: 'rowling',
     loadComponent: () => import('./features/rowling/room-landing/room-landing.component'),
-    canActivate: [sherlockAuthGuard],
+    canActivate: [authGuard],
   },
   {
     path: 'rowling/themes/:slug',
     loadComponent: () => import('./features/rowling/theme-topics/theme-topics.component'),
-    canActivate: [sherlockAuthGuard],
+    canActivate: [authGuard],
   },
   {
     path: 'rowling/topics/:slug/style',
     loadComponent: () => import('./features/rowling/style-chooser/style-chooser.component'),
-    canActivate: [sherlockAuthGuard],
+    canActivate: [authGuard],
   },
   {
     path: 'rowling/topics/:slug',
     loadComponent: () => import('./features/rowling/topic-reader/topic-reader.component'),
-    canActivate: [sherlockAuthGuard],
+    canActivate: [authGuard],
   },
   {
     path: 'rowling/write/:id',
     loadComponent: () => import('./features/rowling/writing-studio/writing-studio.component'),
-    canActivate: [sherlockAuthGuard],
+    canActivate: [authGuard],
   },
   {
     path: 'studio/login',

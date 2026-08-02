@@ -1,11 +1,13 @@
+import uuid
 from unittest.mock import patch
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from app.models.user import User, UserRole
 from app.schemas.user import ProfileUpdate
 from app.services import user_service
-from app.services.auth_service import DEV_USER_NAME, dev_login, google_sign_in
+from app.services.auth_service import DEV_USER_NAME, _get_or_create_user, dev_login, google_sign_in
 
 
 async def test_google_sign_in_creates_user_for_any_email(db):
@@ -58,6 +60,45 @@ async def test_google_sign_in_does_not_clobber_customized_profile_on_relogin(db)
 
     assert second.user.name == "Original Name"
     assert second.user.avatar_url == "https://custom/avatar.jpg"
+
+
+async def test_get_or_create_user_recovers_from_concurrent_insert_race(db):
+    """Two requests for the same brand-new account can race — e.g. an
+    impatient double-click firing a second sign-in while the first is
+    still in flight. Simulates the loser's commit hitting the real
+    unique-constraint violation a concurrent winner's insert would cause
+    (google_sub/email are unique columns) — it must recover by
+    re-selecting the winner's row, not raise a 500."""
+    winner = User(
+        id=uuid.uuid4(), google_sub="race-sub", email="race@example.com", name="Racer", role=UserRole.learner
+    )
+    db.add(winner)
+    await db.commit()
+
+    real_execute = db.execute
+    call_count = 0
+
+    class _EmptyResult:
+        def scalar_one_or_none(self):
+            return None
+
+    async def flaky_execute(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            # The initial SELECT races ahead of the concurrent winner's
+            # commit — as if the row didn't exist yet at read time.
+            return _EmptyResult()
+        return await real_execute(*args, **kwargs)
+
+    async def flaky_commit():
+        raise IntegrityError("insert", {}, Exception("unique violation"))
+
+    with patch.object(db, "execute", side_effect=flaky_execute), patch.object(db, "commit", side_effect=flaky_commit):
+        user = await _get_or_create_user(db, google_sub="race-sub", email="new@example.com", name="New")
+
+    assert user.id == winner.id
+    assert call_count == 2  # initial SELECT, then the recovery re-SELECT
 
 
 async def test_dev_login_creates_user_named_nish(db):
