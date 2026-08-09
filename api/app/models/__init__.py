@@ -3,6 +3,9 @@ from app.models.companion_message import CompanionMessage, CompanionMessageRole
 from app.models.content import Content, ContentStatus
 from app.models.family_link import FamilyLink, FamilyLinkStatus
 from app.models.grammar_flag import GrammarFlag, GrammarFlagStatus
+from app.models.math_attempt import MathAttempt
+from app.models.math_coach_message import MathCoachMessage, MathCoachMessageRole
+from app.models.math_problem import MathAnswerKind, MathProblem, MathProblemStatus
 from app.models.note import Note
 from app.models.parent_report import ParentReport
 from app.models.puzzle import PuzzleAttempt, PuzzleGameProgress, PuzzleTier, next_tier
@@ -21,6 +24,12 @@ __all__ = [
     "FamilyLinkStatus",
     "GrammarFlag",
     "GrammarFlagStatus",
+    "MathAnswerKind",
+    "MathAttempt",
+    "MathCoachMessage",
+    "MathCoachMessageRole",
+    "MathProblem",
+    "MathProblemStatus",
     "Note",
     "ParentReport",
     "PuzzleAttempt",
