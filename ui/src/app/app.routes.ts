@@ -39,7 +39,16 @@ export const routes: Routes = [
     loadComponent: () => import('./features/sherlock/home/puzzle-home.component'),
     canActivate: [sherlockAuthGuard],
   },
-  { path: 'ramanujan', loadComponent: () => import('./features/ramanujan/ramanujan.component') },
+  {
+    path: 'ramanujan',
+    loadComponent: () => import('./features/ramanujan/ramanujan.component'),
+    canActivate: [authGuard],
+  },
+  {
+    path: 'ramanujan/problems/:slug',
+    loadComponent: () => import('./features/ramanujan/problem-solver/problem-solver.component'),
+    canActivate: [authGuard],
+  },
   { path: 'einstein', loadComponent: () => import('./features/einstein/einstein.component') },
   {
     path: 'rowling',
