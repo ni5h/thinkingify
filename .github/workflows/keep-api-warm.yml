@@ -1,18 +1,36 @@
 name: Keep API warm
 
 # Render's free tier spins the API down after ~15 minutes of inactivity
-# and cold-starts it on the next request (commonly 30-60s+, since the
+# and cold-starts it on the next request (commonly 40-60s+, since the
 # container also runs `alembic upgrade head` before Uvicorn starts) —
-# this was the primary cause of slow/multi-click logins. Pinging the
-# health endpoint every 10 minutes keeps it from sleeping. This is a
-# mitigation, not a fix: it still won't survive Render pausing the
-# service during genuinely idle overnight/weekend stretches depending on
-# their exact policy, and burns a small Actions minute budget. The
-# robust fix is upgrading off the free plan — a billing decision, not
-# something this workflow can do.
+# this was the primary cause of slow/multi-click logins.
+#
+# This job pings the health endpoint to keep the service awake. Two
+# things it MUST get right, learned the hard way:
+#   1. The request timeout has to exceed a full cold start. A short
+#      timeout (e.g. 30s) lands on a sleeping service, gives up before
+#      the container finishes booting, and fails the workflow with a
+#      false alarm — the exact opposite of keeping it warm.
+#   2. It has to retry, so a request that arrives mid-cold-start waits
+#      the boot out and succeeds (both warming the service and avoiding
+#      a spurious CI failure).
+#
+# It runs every 5 minutes (the minimum GitHub cron interval) rather than
+# every 10, because GitHub frequently DELAYS scheduled runs under load —
+# a 10-minute nominal cadence can drift past Render's 15-minute idle
+# window and let the service sleep anyway. Five minutes gives more
+# margin against that drift.
+#
+# This is still only a mitigation. GitHub's scheduled-workflow timing is
+# best-effort (runs can be delayed many minutes or, rarely, skipped), so
+# occasional cold starts remain possible. The robust fixes are upgrading
+# the API off Render's free plan (never sleeps) or using a dedicated
+# uptime pinger (e.g. UptimeRobot / cron-job.org, which hit every 5 min
+# far more reliably than GitHub cron) — both are decisions for the repo
+# owner, not something this workflow can do.
 on:
   schedule:
-    - cron: '*/10 * * * *'
+    - cron: '*/5 * * * *'
   workflow_dispatch:
 
 jobs:
@@ -20,4 +38,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Ping health endpoint
-        run: curl -sS -m 30 -o /dev/null -w "status=%{http_code} time=%{time_total}s\n" https://api.thinkingify.com/health
+        run: >
+          curl -sS
+          --max-time 150
+          --retry 3
+          --retry-delay 20
+          --retry-all-errors
+          -o /dev/null
+          -w "status=%{http_code} time=%{time_total}s\n"
+          https://api.thinkingify.com/health
