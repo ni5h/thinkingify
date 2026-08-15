@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.api.v1.auth import router as auth_router
+from app.api.v1.brothers import router as brothers_router
 from app.api.v1.content import router as content_router
 from app.api.v1.family import router as family_router
 from app.api.v1.math import router as math_router
@@ -11,6 +12,7 @@ from app.api.v1.users import router as users_router
 
 api_v1_router = APIRouter()
 api_v1_router.include_router(auth_router)
+api_v1_router.include_router(brothers_router)
 api_v1_router.include_router(content_router)
 api_v1_router.include_router(family_router)
 api_v1_router.include_router(math_router)

@@ -1,4 +1,11 @@
 from app.models.base import Base
+from app.models.brother import (
+    BrotherAttempt,
+    BrotherSession,
+    BrotherSessionStatus,
+    BrotherTierProgress,
+    BrotherTierStatus,
+)
 from app.models.companion_message import CompanionMessage, CompanionMessageRole
 from app.models.content import Content, ContentStatus
 from app.models.family_link import FamilyLink, FamilyLinkStatus
@@ -16,6 +23,11 @@ from app.models.user import User, UserRole
 
 __all__ = [
     "Base",
+    "BrotherAttempt",
+    "BrotherSession",
+    "BrotherSessionStatus",
+    "BrotherTierProgress",
+    "BrotherTierStatus",
     "CompanionMessage",
     "CompanionMessageRole",
     "Content",

@@ -45,6 +45,11 @@ export const routes: Routes = [
     canActivate: [authGuard],
   },
   {
+    path: 'ramanujan/brothers',
+    loadComponent: () => import('./features/ramanujan/brothers/brothers.component'),
+    canActivate: [authGuard],
+  },
+  {
     path: 'ramanujan/problems/:slug',
     loadComponent: () => import('./features/ramanujan/problem-solver/problem-solver.component'),
     canActivate: [authGuard],

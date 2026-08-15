@@ -21,6 +21,20 @@ import { MathService } from '../../core/services/math.service';
       </div>
     </div>
 
+    <h2 class="font-display text-xl mt-10">Practice</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+      <a
+        routerLink="/ramanujan/brothers"
+        class="rounded-2xl border border-amber/40 bg-amber/5 shadow-sm p-5 hover:shadow-md transition-shadow flex items-center justify-between gap-3"
+      >
+        <div>
+          <h3 class="font-display text-lg text-ink">Brothers</h3>
+          <p class="text-sm text-muted mt-1">Complements to 10, 100, 1000 &mdash; the heart of mental maths.</p>
+        </div>
+        <app-icon name="arrow-right" [size]="20" class="text-amber shrink-0" />
+      </a>
+    </div>
+
     <h2 class="font-display text-xl mt-10">Problems</h2>
     @if ((problems() ?? []).length === 0) {
       <p class="text-muted mt-4">No problems yet &mdash; check back soon.</p>
