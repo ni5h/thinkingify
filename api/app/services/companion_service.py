@@ -170,6 +170,93 @@ def _build_system_prompt(
     )
 
 
+# Blank "Write your own" posts have no source topic, so there are no facts
+# to leak and no topic material to draw on — the coach works purely from the
+# kid's own idea, notes, and draft. Same warm, never-ghostwrite register and
+# same response ladder; the fact-avoidance rule is dropped (nothing to avoid)
+# and ladder level 2 points at their own notes/draft instead of topic material.
+_BLANK_SYSTEM_PROMPT_TEMPLATE = """\
+You are a curious, encouraging writing companion for a child (around 9 \
+years old) using a kids' educational app called Thinkingify. Think of \
+yourself as a warm older sibling or a curious friend sitting next to \
+them while they write — not a teacher, not a quiz bot, and never a \
+ghostwriter.
+
+The kid is writing their OWN freeform piece from a blank page — their own \
+idea, in their own words. There is no set topic and no right answer. Your \
+job is to help them find and shape what they want to say.
+
+This app has a strict rule everywhere: the AI never writes content for the \
+kid. You are a new, bounded exception that only ever *talks* — you help \
+them think, you never draft prose they could paste into their own writing.
+
+Hard rules, no exceptions:
+- Never write a sentence or phrase the kid could paste directly into their \
+draft. Always speak to them in second person, coaching register ("What if \
+it started with...?") — never in narrative/descriptive register ("The owl \
+flew...").
+- Every single reply must end in a question or a small, concrete, \
+actionable nudge.
+- If the kid directly asks you to just write it for them: acknowledge how \
+they're feeling, don't scold them, and redirect gently.
+
+Response ladder — use the lowest level that fits, and only escalate if \
+the kid is still stuck on the exact same thing across multiple turns \
+(reset back toward level 1 the moment they ask about something new):
+1. Open question — "What made you want to write about this?"
+2. Point to their own material — "You jotted X in your notes — where could \
+that go?"
+3. Reduce scope — "Forget the whole piece for a second — just tell me one \
+sentence about how it starts."
+4. Process nudge, never content — "Want to just write something messy and \
+we'll fix it up after?"
+
+Praise policy: no unprompted evaluative praise ("great job!", "amazing!"). \
+A light acknowledgment of effort or movement is fine ("Nice, you \
+started!"), but nothing more — save real praise for later.
+
+Off-topic handling: if the kid goes off on a tangent, follow it briefly \
+and warmly, redirect gently once, and don't act like a rigid enforcer.
+
+You must always reply by calling the submit_reply tool. `reply` is the \
+warm, short message the kid will actually see. `ladder_level` is your \
+honest assessment of which level above best matches this reply. \
+`direct_answer_requested` is true only if the kid's latest message was \
+asking you to just write the content for them directly.
+{session_state}
+
+--- The kid's own notes ---
+{notes_context}
+
+--- The kid's current draft ({style_label} style) ---
+{draft_context}
+"""
+
+
+def _build_blank_system_prompt(
+    *,
+    notes_body: str,
+    draft_markdown: str,
+    style: str | None,
+    current_ladder_level: int,
+    consecutive_direct_answer_count: int,
+) -> str:
+    session_state = f"\nCurrent ladder level so far this session: {current_ladder_level}."
+    if consecutive_direct_answer_count >= 2:
+        session_state += (
+            " The kid has now asked you to write it for them more than once in a row. "
+            "Gently and kindly name this pattern out loud before redirecting again — "
+            "don't pretend not to notice."
+        )
+
+    return _BLANK_SYSTEM_PROMPT_TEMPLATE.format(
+        session_state=session_state,
+        notes_context=notes_body.strip() or "(no notes yet)",
+        draft_context=draft_markdown.strip() or "(nothing written yet)",
+        style_label=_STYLE_LABELS.get(style or "", "Freeform"),
+    )
+
+
 def _ends_in_nudge(reply: str) -> bool:
     return reply.strip().endswith("?")
 
@@ -230,15 +317,17 @@ async def send_message(
     session_id: uuid.UUID,
     user_text: str,
 ) -> CompanionMessage:
+    # Topic-linked posts coach against the source material (with a fact-leak
+    # guard); blank "Write your own" posts have no topic, so the coach works
+    # purely from the kid's own idea/notes/draft and the guard is moot.
     if content.topic_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="This draft isn't linked to a topic yet."
-        )
-
-    topic = await topic_service.get_by_id(db, content.topic_id)
-    if topic is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Topic not found.")
-    note = await note_service.get_or_create(db, current_user, content.topic_id)
+        topic = None
+        note = await note_service.get_or_create_for_content(db, current_user, content.id)
+    else:
+        topic = await topic_service.get_by_id(db, content.topic_id)
+        if topic is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Topic not found.")
+        note = await note_service.get_or_create(db, current_user, content.topic_id)
 
     # Persist the kid's own words before ever calling the LLM — never lose
     # them to an API failure.
@@ -277,15 +366,24 @@ async def send_message(
     # a bug in the leak/repair logic all fail the same way, soft toward
     # the kid (an in-character reply) and loud toward the logs.
     try:
-        system_prompt = _build_system_prompt(
-            topic_explainer=topic.explainer_markdown,
-            audio_transcript=topic.audio_transcript,
-            notes_body=note.body,
-            draft_markdown=content.content_markdown,
-            style=content.style,
-            current_ladder_level=current_ladder_level,
-            consecutive_direct_answer_count=consecutive_direct_answer_count,
-        )
+        if topic is None:
+            system_prompt = _build_blank_system_prompt(
+                notes_body=note.body,
+                draft_markdown=content.content_markdown,
+                style=content.style,
+                current_ladder_level=current_ladder_level,
+                consecutive_direct_answer_count=consecutive_direct_answer_count,
+            )
+        else:
+            system_prompt = _build_system_prompt(
+                topic_explainer=topic.explainer_markdown,
+                audio_transcript=topic.audio_transcript,
+                notes_body=note.body,
+                draft_markdown=content.content_markdown,
+                style=content.style,
+                current_ladder_level=current_ladder_level,
+                consecutive_direct_answer_count=consecutive_direct_answer_count,
+            )
         tool_input = await anthropic_client.send_structured(
             system=system_prompt,
             messages=_to_anthropic_messages(session_messages),
@@ -298,7 +396,11 @@ async def send_message(
         # Model can de-escalate freely; can't jump more than one rung per turn.
         ladder_level = max(1, min(ladder_level, current_ladder_level + 1, 4))
 
-        fact_leak_blocked = is_fact_leak(reply, topic.explainer_markdown, topic.audio_transcript)
+        # Blank posts have no source facts to leak, so the guard only runs
+        # for topic-linked drafts.
+        fact_leak_blocked = topic is not None and is_fact_leak(
+            reply, topic.explainer_markdown, topic.audio_transcript
+        )
         if fact_leak_blocked:
             reply = "Hmm, let's think about this together — what part of the topic stood out to you the most?"
         else:

@@ -1,5 +1,5 @@
-import { Component, computed, inject } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Component, computed, inject, signal } from '@angular/core';
+import { RouterLink, Router } from '@angular/router';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
 import { TopicService } from '../../../core/services/topic.service';
 import { BlogService } from '../../../core/services/blog.service';
@@ -25,16 +25,18 @@ import { TOPIC_THEMES } from '../../../core/models/theme';
 
     <h2 class="font-display text-xl mt-10">Get started</h2>
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-      <a
-        routerLink="/studio/posts/new"
-        class="rounded-2xl border border-amber/40 bg-amber/5 shadow-sm p-5 hover:shadow-md transition-shadow flex items-center justify-between gap-3"
+      <button
+        type="button"
+        [disabled]="starting()"
+        (click)="startBlank()"
+        class="text-left rounded-2xl border border-amber/40 bg-amber/5 shadow-sm p-5 hover:shadow-md transition-shadow flex items-center justify-between gap-3 disabled:opacity-60"
       >
         <div>
           <h3 class="font-display text-lg text-ink">Write your own</h3>
           <p class="text-sm text-muted mt-1">No topic, no rules &mdash; just write.</p>
         </div>
         <app-icon name="arrow-right" [size]="20" class="text-amber shrink-0" />
-      </a>
+      </button>
       @for (theme of themeCards(); track theme.slug) {
         <a
           [routerLink]="['/rowling/themes', theme.slug]"
@@ -70,6 +72,15 @@ import { TOPIC_THEMES } from '../../../core/models/theme';
 export default class RoomLandingComponent {
   private readonly topicService = inject(TopicService);
   private readonly blog = inject(BlogService);
+  private readonly router = inject(Router);
+
+  readonly starting = signal(false);
+
+  async startBlank(): Promise<void> {
+    this.starting.set(true);
+    const post = await this.blog.create({ title: '', style: 'blank' });
+    await this.router.navigate(['/rowling/write', post.id]);
+  }
 
   readonly themeCards = computed(() => {
     const counts = new Map<string, number>();

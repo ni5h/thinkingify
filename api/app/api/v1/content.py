@@ -18,11 +18,13 @@ from app.schemas.sentence_framing import (
     SentenceFramingFlagOut,
 )
 from app.schemas.spelling import SpellingAttemptRequest, SpellingCheckRequest, SpellingFlagOut
+from app.schemas.note import NoteOut, NoteUpdate
 from app.services import (
     companion_service,
     content_service,
     family_service,
     grammar_service,
+    note_service,
     parent_report_service,
     sentence_framing_service,
     spelling_service,
@@ -243,6 +245,31 @@ async def send_companion_message(
 ):
     content = await _get_owned_or_404(db, content_id, current_user)
     return await companion_service.send_message(db, current_user, content, body.session_id, body.body)
+
+
+# --- Notes: content-scoped scratchpad for blank (topic-less) posts ---
+
+
+@router.get("/{content_id}/notes", response_model=NoteOut)
+async def get_content_note(
+    content_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    await _get_owned_or_404(db, content_id, current_user)
+    return await note_service.get_or_create_for_content(db, current_user, content_id)
+
+
+@router.patch("/{content_id}/notes", response_model=NoteOut)
+async def update_content_note(
+    content_id: uuid.UUID,
+    body: NoteUpdate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    await _get_owned_or_404(db, content_id, current_user)
+    note = await note_service.get_or_create_for_content(db, current_user, content_id)
+    return await note_service.update(db, note, body.body)
 
 
 # --- Spelling check ---

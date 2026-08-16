@@ -30,11 +30,38 @@ def _mock_reply(reply: str, ladder_level: int = 1, direct_answer_requested: bool
     return AsyncMock(return_value={"reply": reply, "ladder_level": ladder_level, "direct_answer_requested": direct_answer_requested})
 
 
-async def test_send_message_requires_topic_linked_content(db, learner_user):
-    content = await _make_content(db, learner_user, topic_id=None)
-    with pytest.raises(HTTPException) as exc_info:
-        await companion_service.send_message(db, learner_user, content, uuid.uuid4(), "hello")
-    assert exc_info.value.status_code == 400
+async def test_send_message_blank_content_succeeds_without_topic(db, learner_user):
+    # A blank "Write your own" post has no topic — the companion coaches
+    # from the kid's own draft/notes instead of raising.
+    content = await _make_content(db, learner_user, topic_id=None, style="blank")
+    session_id = uuid.uuid4()
+
+    with patch(
+        "app.services.anthropic_client.send_structured",
+        _mock_reply("What made you want to write about this?", ladder_level=1),
+    ):
+        reply = await companion_service.send_message(db, learner_user, content, session_id, "not sure where to start")
+
+    assert reply.role.value == "assistant"
+    assert reply.is_fallback is False
+    assert reply.fact_leak_blocked is False
+    assert "?" in reply.body
+
+    history = await companion_service.list_messages(db, content)
+    assert len(history) == 2
+
+
+async def test_send_message_blank_content_skips_fact_leak_guard(db, learner_user):
+    # There is no source material for a blank post, so a reply that would
+    # trip the topic fact-leak guard must NOT be blocked here.
+    content = await _make_content(db, learner_user, topic_id=None, style="blank")
+    leaky = "Owls can rotate their heads because they have extra vertebrae in their necks."
+
+    with patch("app.services.anthropic_client.send_structured", _mock_reply(leaky, ladder_level=1)):
+        reply = await companion_service.send_message(db, learner_user, content, uuid.uuid4(), "tell me about owls")
+
+    assert reply.fact_leak_blocked is False
+    assert reply.body.startswith("Owls can rotate")
 
 
 async def test_send_message_happy_path_persists_both_messages(db, admin_user, learner_user):

@@ -18,6 +18,17 @@ async def get_or_create(db: AsyncSession, user: User, topic_id: uuid.UUID) -> No
     return note
 
 
+async def get_or_create_for_content(db: AsyncSession, user: User, content_id: uuid.UUID) -> Note:
+    result = await db.execute(select(Note).where(Note.user_id == user.id, Note.content_id == content_id))
+    note = result.scalar_one_or_none()
+    if note is None:
+        note = Note(id=uuid.uuid4(), user_id=user.id, content_id=content_id)
+        db.add(note)
+        await db.commit()
+        await db.refresh(note)
+    return note
+
+
 async def update(db: AsyncSession, note: Note, body: str) -> Note:
     note.body = body
     await db.commit()

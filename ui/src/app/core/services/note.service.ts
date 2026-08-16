@@ -19,4 +19,14 @@ export class NoteService {
   async update(topicId: string, body: string): Promise<Note> {
     return firstValueFrom(this.http.patch<Note>(`/api/v1/topics/${topicId}/notes`, { body }));
   }
+
+  // Blank "Write your own" posts have no topic, so their scratchpad is
+  // scoped by the content row itself.
+  async getOrCreateForContent(contentId: string): Promise<Note> {
+    return firstValueFrom(this.http.get<Note>(`/api/v1/content/${contentId}/notes`));
+  }
+
+  async updateForContent(contentId: string, body: string): Promise<Note> {
+    return firstValueFrom(this.http.patch<Note>(`/api/v1/content/${contentId}/notes`, { body }));
+  }
 }
