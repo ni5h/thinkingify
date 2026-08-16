@@ -40,6 +40,14 @@ import { assembleSectionMarkdown, resolveEditorMode } from './section-markdown';
 const AUTOSAVE_DELAY_MS = 3000;
 const FREEFORM_PLACEHOLDER = 'Start writing...';
 
+// Persisted editor layout prefs (per browser, not per post — a kid settles
+// on one comfortable size and keeps it).
+const NOTES_WIDTH_KEY = 'ws:notesWidth';
+const EDITOR_HEIGHT_KEY = 'ws:editorHeight';
+const NOTES_WIDTH_MIN = 220;
+const NOTES_WIDTH_MAX = 560;
+const NOTES_WIDTH_DEFAULT = 320;
+
 type EditorViewMode = 'loading' | 'scaffolded' | 'blank';
 
 @Component({
@@ -90,11 +98,8 @@ type EditorViewMode = 'loading' | 'scaffolded' | 'blank';
         }
       </div>
 
-      <div class="md:flex md:gap-6 mt-6">
-        <div [class]="maximized()
-          ? 'fixed inset-0 z-50 bg-paper overflow-y-auto p-6 md:p-10'
-          : 'md:flex-1 min-w-0'"
-        >
+      <div class="md:flex md:gap-1 mt-6">
+        <div class="md:flex-1 min-w-0">
           <label class="flex flex-col gap-1">
             <span class="text-sm font-medium text-muted">Title</span>
             <input
@@ -105,8 +110,8 @@ type EditorViewMode = 'loading' | 'scaffolded' | 'blank';
             />
           </label>
 
-          <div class="flex justify-end gap-2 mt-2">
-            @if (topicId() && !maximized()) {
+          @if (!maximized()) {
+            <div class="flex justify-end gap-2 mt-2">
               <button
                 type="button"
                 (click)="chatOpen.set(!chatOpen())"
@@ -114,41 +119,59 @@ type EditorViewMode = 'loading' | 'scaffolded' | 'blank';
               >
                 {{ chatOpen() ? 'Hide writing buddy' : 'Writing buddy' }}
               </button>
-            }
-            <button
-              type="button"
-              (click)="toggleMaximized()"
-              class="rounded-lg px-2.5 py-1.5 text-sm text-muted hover:bg-cloud hover:text-ink transition-colors"
-            >
-              {{ maximized() ? 'Exit fullscreen' : 'Fullscreen' }}
-            </button>
-          </div>
-
-          @if (mode() === 'scaffolded') {
-            <div class="flex flex-col gap-5 mt-2">
-              @for (section of revealedSections(); track section.id) {
-                <app-section-editor
-                  [section]="section"
-                  [initialMarkdown]="sectionContent()[section.id]"
-                  (markdownChange)="onSectionChange(section.id, $event)"
-                />
-              }
-              @if (revealedCount() < totalSections()) {
-                <button
-                  type="button"
-                  (click)="revealNext()"
-                  class="self-start rounded-xl border border-cloud bg-paper px-5 py-2.5 text-sm font-medium text-ink hover:border-moss hover:bg-cloud/60 transition-colors"
-                >
-                  Next part &rarr;
-                </button>
-              }
-            </div>
-          } @else {
-            <div class="mt-2">
-              <app-editor-toolbar [activeMarks]="activeMarks()" (command)="onCommand($event)" />
-              <div #editorEl class="markdown-content rounded-b-xl border border-cloud px-4 py-3 min-h-[16rem] focus-within:border-moss transition-colors"></div>
+              <button
+                type="button"
+                (click)="toggleMaximized()"
+                class="rounded-lg px-2.5 py-1.5 text-sm text-muted hover:bg-cloud hover:text-ink transition-colors"
+              >
+                Fullscreen
+              </button>
             </div>
           }
+
+          <div [class]="maximized()
+            ? 'fixed inset-0 z-50 bg-paper overflow-y-auto p-6 md:p-10'
+            : 'mt-2'"
+          >
+            @if (maximized()) {
+              <div class="flex justify-end mb-3 max-w-3xl mx-auto">
+                <button
+                  type="button"
+                  (click)="toggleMaximized()"
+                  class="rounded-lg px-2.5 py-1.5 text-sm text-muted hover:bg-cloud hover:text-ink transition-colors"
+                >
+                  Exit fullscreen
+                </button>
+              </div>
+            }
+            <div [class]="maximized() ? 'max-w-3xl mx-auto' : ''">
+              @if (mode() === 'scaffolded') {
+                <div class="flex flex-col gap-5">
+                  @for (section of revealedSections(); track section.id) {
+                    <app-section-editor
+                      [section]="section"
+                      [initialMarkdown]="sectionContent()[section.id]"
+                      (markdownChange)="onSectionChange(section.id, $event)"
+                    />
+                  }
+                  @if (revealedCount() < totalSections()) {
+                    <button
+                      type="button"
+                      (click)="revealNext()"
+                      class="self-start rounded-xl border border-cloud bg-paper px-5 py-2.5 text-sm font-medium text-ink hover:border-moss hover:bg-cloud/60 transition-colors"
+                    >
+                      Next part &rarr;
+                    </button>
+                  }
+                </div>
+              } @else {
+                <div>
+                  <app-editor-toolbar [activeMarks]="activeMarks()" (command)="onCommand($event)" />
+                  <div #editorEl class="markdown-content rounded-b-xl border border-cloud px-4 py-3 min-h-[16rem] resize-y overflow-auto focus-within:border-moss transition-colors"></div>
+                </div>
+              }
+            </div>
+          </div>
 
           @if (spellingFlags(); as flags) {
             <app-spelling-check-panel
@@ -191,13 +214,21 @@ type EditorViewMode = 'loading' | 'scaffolded' | 'blank';
         </div>
 
         @if (!maximized()) {
-          <aside class="md:w-80 shrink-0 mt-8 md:mt-0">
+          <div
+            class="hidden md:block w-1.5 shrink-0 cursor-col-resize rounded bg-cloud hover:bg-moss/40 transition-colors"
+            title="Drag to resize"
+            (mousedown)="startNotesResize($event)"
+          ></div>
+          <aside
+            class="shrink-0 w-full md:w-[var(--notes-w)] mt-8 md:mt-0 md:ml-5"
+            [style.--notes-w]="notesWidth() + 'px'"
+          >
             <app-notes-panel [body]="noteBody()" [status]="null" (bodyChange)="noteBody.set($event)" (blurred)="saveNote()" />
           </aside>
         }
       </div>
 
-      @if (topicId() && chatOpen() && !maximized()) {
+      @if (chatOpen() && !maximized()) {
         <div class="fixed inset-0 z-40 bg-ink/20" (click)="chatOpen.set(false)"></div>
         <div class="fixed inset-y-0 right-0 z-50 w-full sm:w-96 bg-paper border-l border-cloud shadow-lg p-4 flex flex-col">
           <button
@@ -266,6 +297,14 @@ export default class WritingStudioComponent implements OnInit, OnDestroy {
   private editor?: Editor;
   private autosaveTimer?: ReturnType<typeof setTimeout>;
 
+  readonly notesWidth = signal(this.loadNotesWidth());
+  private editorHeightObserver?: ResizeObserver;
+
+  private loadNotesWidth(): number {
+    const stored = Number(localStorage.getItem(NOTES_WIDTH_KEY));
+    return stored >= NOTES_WIDTH_MIN && stored <= NOTES_WIDTH_MAX ? stored : NOTES_WIDTH_DEFAULT;
+  }
+
   constructor() {
     // Blank mode's single editor mounts here instead of ngAfterViewInit —
     // its #editorEl div only exists once `mode()` resolves to 'blank'
@@ -291,6 +330,9 @@ export default class WritingStudioComponent implements OnInit, OnDestroy {
     if (post.topic_id) {
       this.topicId.set(post.topic_id);
       const note = await this.noteService.getOrCreate(post.topic_id);
+      this.noteBody.set(note.body);
+    } else {
+      const note = await this.noteService.getOrCreateForContent(this.postId);
       this.noteBody.set(note.body);
     }
 
@@ -333,6 +375,7 @@ export default class WritingStudioComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     if (this.autosaveTimer) clearTimeout(this.autosaveTimer);
+    this.editorHeightObserver?.disconnect();
     this.editor?.destroy();
   }
 
@@ -349,6 +392,35 @@ export default class WritingStudioComponent implements OnInit, OnDestroy {
       onSelectionUpdate: () => this.syncActiveMarks(),
     });
     this.syncActiveMarks();
+
+    // Restore the kid's preferred editor height, then persist any change made
+    // via the native resize handle (resize-y writes the height as inline style).
+    const storedHeight = localStorage.getItem(EDITOR_HEIGHT_KEY);
+    if (storedHeight) element.style.height = storedHeight;
+    this.editorHeightObserver = new ResizeObserver(() => {
+      if (element.style.height) localStorage.setItem(EDITOR_HEIGHT_KEY, element.style.height);
+    });
+    this.editorHeightObserver.observe(element);
+  }
+
+  startNotesResize(event: MouseEvent): void {
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = this.notesWidth();
+    const onMove = (e: MouseEvent) => {
+      // Notes sit on the right, so dragging the handle left widens them.
+      const next = Math.min(NOTES_WIDTH_MAX, Math.max(NOTES_WIDTH_MIN, startWidth + (startX - e.clientX)));
+      this.notesWidth.set(next);
+    };
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.body.style.userSelect = '';
+      localStorage.setItem(NOTES_WIDTH_KEY, String(this.notesWidth()));
+    };
+    document.body.style.userSelect = 'none';
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
   }
 
   private syncActiveMarks(): void {
@@ -586,8 +658,11 @@ export default class WritingStudioComponent implements OnInit, OnDestroy {
 
   async saveNote(): Promise<void> {
     const topicId = this.topicId();
-    if (!topicId) return;
-    await this.noteService.update(topicId, this.noteBody());
+    if (topicId) {
+      await this.noteService.update(topicId, this.noteBody());
+    } else {
+      await this.noteService.updateForContent(this.postId, this.noteBody());
+    }
   }
 
   async copyLink(): Promise<void> {
