@@ -23,20 +23,25 @@ import { resizeAndCompressImage } from '../../core/utils/image';
 
     @if (!me()) {
       <p class="text-muted mt-6">Loading your profile&hellip;</p>
-    } @else if (!me()!.account_type) {
-      <p class="text-muted mt-1">Let's set up your profile. Are you a parent or a kid?</p>
-      <div class="flex gap-3 mt-6">
-        <button type="button" (click)="chooseAccountType('parent')" class="rounded-xl border border-cloud bg-white shadow-sm px-6 py-5 text-left hover:border-moss transition-colors">
-          <p class="font-display text-lg text-ink">I'm a parent</p>
-          <p class="text-sm text-muted mt-1">or another grown-up guardian</p>
-        </button>
-        <button type="button" (click)="chooseAccountType('child')" class="rounded-xl border border-cloud bg-white shadow-sm px-6 py-5 text-left hover:border-moss transition-colors">
-          <p class="font-display text-lg text-ink">I'm a kid</p>
-          <p class="text-sm text-muted mt-1">writing, learning, exploring</p>
-        </button>
-      </div>
     } @else {
-      <div class="max-w-md mt-6">
+      <section class="max-w-md mt-6">
+        <h2 class="text-sm font-medium text-muted">I'm a&hellip;</h2>
+        @if (!me()!.account_type) {
+          <p class="text-sm text-muted mt-1">Tell us who you are so we can set things up.</p>
+        }
+        <div class="flex gap-3 mt-2">
+          <button type="button" (click)="chooseAccountType('parent')" [class]="accountTypeButtonClass('parent')">
+            <p class="font-display text-lg">I'm a parent</p>
+            <p class="text-sm mt-1 opacity-80">or another grown-up guardian</p>
+          </button>
+          <button type="button" (click)="chooseAccountType('child')" [class]="accountTypeButtonClass('child')">
+            <p class="font-display text-lg">I'm a kid</p>
+            <p class="text-sm mt-1 opacity-80">writing, learning, exploring</p>
+          </button>
+        </div>
+      </section>
+
+      <div class="max-w-md mt-8">
         <div class="rounded-xl bg-cloud/60 h-2 overflow-hidden">
           <div class="bg-moss h-full transition-all" [style.width.%]="me()!.profile_completion_percent"></div>
         </div>
@@ -85,7 +90,7 @@ import { resizeAndCompressImage } from '../../core/utils/image';
             <span class="text-sm font-medium text-muted">School</span>
             <input type="text" maxlength="150" [value]="schoolName()" (input)="schoolName.set($any($event.target).value)" class="rounded-xl border border-cloud bg-paper px-3 py-2.5 focus:outline-none focus:border-moss focus:ring-1 focus:ring-moss/30 transition-colors" />
           </label>
-        } @else {
+        } @else if (me()!.account_type === 'parent') {
           <label class="flex flex-col gap-1">
             <span class="text-sm font-medium text-muted">What do you do? <span class="text-muted font-normal">(optional)</span></span>
             <input type="text" maxlength="150" [value]="occupation()" (input)="occupation.set($any($event.target).value)" class="rounded-xl border border-cloud bg-paper px-3 py-2.5 focus:outline-none focus:border-moss focus:ring-1 focus:ring-moss/30 transition-colors" />
@@ -147,11 +152,23 @@ import { resizeAndCompressImage } from '../../core/utils/image';
           <h3 class="text-sm font-medium text-muted mt-6">Waiting for a reply</h3>
           <ul class="mt-2 flex flex-col gap-2">
             @for (req of outgoing(); track req.id) {
-              <li class="text-sm text-muted">
-                {{ otherParty(req).name }} &mdash; waiting for them to accept
+              <li class="rounded-2xl border border-cloud bg-white shadow-sm p-4 flex items-center justify-between gap-3">
+                <span class="text-sm text-muted">
+                  {{ otherParty(req).name }} &mdash;
+                  {{ justResentId() === req.id ? 'invite refreshed' : 'waiting for them to accept' }}
+                </span>
+                <span class="flex gap-2 shrink-0">
+                  <button type="button" (click)="resend(req.id)" class="rounded-lg bg-moss/10 px-3 py-1.5 text-sm font-medium text-moss-dark hover:bg-moss/20 transition-colors">
+                    Resend
+                  </button>
+                  <button type="button" (click)="cancel(req.id)" class="rounded-lg px-3 py-1.5 text-sm font-medium text-muted hover:bg-cloud/60 hover:text-ink transition-colors">
+                    Cancel
+                  </button>
+                </span>
               </li>
             }
           </ul>
+          <p class="text-xs text-muted mt-2">Thinkingify doesn't send emails yet &mdash; they'll see your invite next time they sign in.</p>
         }
 
         @if (guardianLinks().length > 0) {
@@ -374,8 +391,17 @@ export default class ProfileComponent {
     });
   }
 
+  readonly justResentId = signal<string | null>(null);
+
   async chooseAccountType(type: AccountType): Promise<void> {
     await this.userProfile.update({ account_type: type });
+  }
+
+  accountTypeButtonClass(type: AccountType): string {
+    const base = 'flex-1 rounded-xl border shadow-sm px-6 py-5 text-left transition-colors';
+    return this.me()?.account_type === type
+      ? `${base} border-moss bg-moss/10 text-moss-dark`
+      : `${base} border-cloud bg-white text-ink hover:border-moss`;
   }
 
   async onAvatarSelected(event: Event): Promise<void> {
@@ -500,6 +526,16 @@ export default class ProfileComponent {
 
   async decline(linkId: string): Promise<void> {
     await this.family.decline(linkId);
+  }
+
+  async resend(linkId: string): Promise<void> {
+    await this.family.resend(linkId);
+    this.justResentId.set(linkId);
+  }
+
+  async cancel(linkId: string): Promise<void> {
+    await this.family.cancel(linkId);
+    if (this.justResentId() === linkId) this.justResentId.set(null);
   }
 
   async unlink(linkId: string): Promise<void> {

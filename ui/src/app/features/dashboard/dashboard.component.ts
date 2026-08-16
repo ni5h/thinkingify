@@ -5,6 +5,9 @@ import { BlogService } from '../../core/services/blog.service';
 import { ProgressService } from '../../core/services/progress.service';
 import { UserProfileService } from '../../core/services/user-profile.service';
 import { PuzzleProgressService } from '../../core/services/puzzle-progress.service';
+import { FamilyService } from '../../core/services/family.service';
+import { AuthService } from '../../core/services/auth.service';
+import { FamilyLink } from '../../core/models/family';
 import { isKakoomaGameId } from '../sherlock/kakooma/kakooma.model';
 
 @Component({
@@ -14,6 +17,34 @@ import { isKakoomaGameId } from '../sherlock/kakooma/kakooma.model';
   template: `
     <h1 class="font-display text-2xl sm:text-3xl">Hello, {{ greetingName() }}.</h1>
     <p class="font-mono text-sm text-muted mt-1">{{ streak() }}-day thinking streak</p>
+
+    @if (incoming().length > 0) {
+      <section class="mt-8">
+        <h2 class="font-display text-xl">Family</h2>
+        <ul class="mt-3 flex flex-col gap-2">
+          @for (req of incoming(); track req.id) {
+            <li class="rounded-2xl border border-cloud bg-white shadow-sm p-4 flex items-center justify-between gap-3">
+              <span class="text-sm text-ink">{{ requestDescription(req) }}</span>
+              <span class="flex gap-2 shrink-0">
+                <button type="button" (click)="accept(req.id)" class="rounded-lg bg-moss/10 px-3 py-1.5 text-sm font-medium text-moss-dark hover:bg-moss/20 transition-colors">
+                  Accept
+                </button>
+                <button type="button" (click)="decline(req.id)" class="rounded-lg px-3 py-1.5 text-sm font-medium text-muted hover:bg-cloud/60 hover:text-ink transition-colors">
+                  Decline
+                </button>
+              </span>
+            </li>
+          }
+        </ul>
+      </section>
+    } @else if (showConnectNudge()) {
+      <section class="mt-8">
+        <a routerLink="/profile" class="block rounded-2xl border border-cloud bg-white shadow-sm p-5 hover:border-moss transition-colors">
+          <p class="font-display text-lg text-ink">Connect your family</p>
+          <p class="text-sm text-muted mt-1">Link a parent or child so grown-ups can follow along and approve posts.</p>
+        </a>
+      </section>
+    }
 
     <hr class="border-cloud mt-10" />
 
@@ -75,9 +106,38 @@ export default class DashboardComponent {
   private readonly progress = inject(ProgressService);
   private readonly userProfile = inject(UserProfileService);
   private readonly puzzleProgress = inject(PuzzleProgressService);
+  private readonly family = inject(FamilyService);
+  private readonly auth = inject(AuthService);
 
   readonly greetingName = computed(() => this.userProfile.me()?.first_name || 'there');
   readonly streak = this.progress.currentStreak;
+
+  readonly incoming = computed(() => this.family.incoming() ?? []);
+  // Only nudge once we know the user has no links either way — while the
+  // resource is still loading (undefined) we stay quiet to avoid a flash.
+  readonly showConnectNudge = computed(() => {
+    const links = this.family.links();
+    if (!links) return false;
+    return links.as_guardian.length === 0 && links.as_child.length === 0;
+  });
+
+  private otherParty(req: FamilyLink) {
+    return this.auth.currentUser()?.id === req.guardian.id ? req.child : req.guardian;
+  }
+
+  requestDescription(req: FamilyLink): string {
+    const iAmGuardian = this.auth.currentUser()?.id === req.guardian.id;
+    const other = this.otherParty(req);
+    return iAmGuardian ? `${other.name} wants you to be their guardian` : `${other.name} wants to be your guardian`;
+  }
+
+  async accept(linkId: string): Promise<void> {
+    await this.family.accept(linkId);
+  }
+
+  async decline(linkId: string): Promise<void> {
+    await this.family.decline(linkId);
+  }
 
   private readonly publishedPosts = computed(() => this.blog.published() ?? []);
   readonly publishedCount = computed(() => this.publishedPosts().length);

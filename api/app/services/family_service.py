@@ -114,6 +114,34 @@ async def decline(db: AsyncSession, link_id: uuid.UUID, user: User) -> None:
     await db.commit()
 
 
+async def resend(db: AsyncSession, link_id: uuid.UUID, user: User) -> FamilyLink:
+    """Re-issue a still-pending outgoing invite. There's no email/notification
+    system, so this can't actually ping the invitee — it bumps the invite's
+    timestamp (a light nudge / forward-compatible hook) and confirms to the
+    sender it's still live. The invite is genuinely surfaced to the recipient
+    on their dashboard, not here."""
+    link = await _get_link_or_404(db, link_id)
+    if link.requested_by != user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This isn't your invite to resend.")
+    if link.status != FamilyLinkStatus.pending:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This request is no longer pending.")
+    link.updated_at = datetime.now(UTC)
+    await db.commit()
+    await db.refresh(link)
+    return link
+
+
+async def cancel(db: AsyncSession, link_id: uuid.UUID, user: User) -> None:
+    """Withdraw a still-pending outgoing invite you sent."""
+    link = await _get_link_or_404(db, link_id)
+    if link.requested_by != user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This isn't your invite to cancel.")
+    if link.status != FamilyLinkStatus.pending:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This request is no longer pending.")
+    await db.delete(link)
+    await db.commit()
+
+
 async def list_my_links(db: AsyncSession, user: User) -> tuple[list[FamilyLink], list[FamilyLink]]:
     as_guardian = await db.execute(
         select(FamilyLink).where(FamilyLink.guardian_id == user.id, FamilyLink.status == FamilyLinkStatus.accepted)

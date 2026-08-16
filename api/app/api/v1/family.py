@@ -93,6 +93,25 @@ async def decline_request(
     await family_service.decline(db, link_id, current_user)
 
 
+@router.post("/requests/{link_id}/resend", response_model=FamilyLinkOut)
+async def resend_request(
+    link_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    link = await family_service.resend(db, link_id, current_user)
+    return await _to_link_out(db, link)
+
+
+@router.post("/requests/{link_id}/cancel", status_code=204)
+async def cancel_request(
+    link_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    await family_service.cancel(db, link_id, current_user)
+
+
 @router.get("/links", response_model=FamilyLinksOut)
 async def list_links(
     db: Annotated[AsyncSession, Depends(get_db)],

@@ -93,6 +93,57 @@ async def test_decline_by_requester_raises_403(db, admin_user, learner_user):
     assert exc_info.value.status_code == 403
 
 
+async def test_resend_by_sender_keeps_link_pending(db, admin_user, learner_user):
+    link = await family_service.send_request(db, admin_user, learner_user.email, "child")
+    resent = await family_service.resend(db, link.id, admin_user)
+    assert resent.id == link.id
+    assert resent.status == FamilyLinkStatus.pending
+
+    # still visible to the recipient as an incoming request
+    incoming = await family_service.list_incoming(db, learner_user)
+    assert len(incoming) == 1
+
+
+async def test_resend_by_non_sender_raises_403(db, admin_user, learner_user):
+    link = await family_service.send_request(db, admin_user, learner_user.email, "child")
+    with pytest.raises(HTTPException) as exc_info:
+        await family_service.resend(db, link.id, learner_user)
+    assert exc_info.value.status_code == 403
+
+
+async def test_resend_non_pending_raises_409(db, admin_user, learner_user):
+    link = await family_service.send_request(db, admin_user, learner_user.email, "child")
+    await family_service.accept(db, link.id, learner_user)
+    with pytest.raises(HTTPException) as exc_info:
+        await family_service.resend(db, link.id, admin_user)
+    assert exc_info.value.status_code == 409
+
+
+async def test_cancel_by_sender_deletes_row(db, admin_user, learner_user):
+    link = await family_service.send_request(db, admin_user, learner_user.email, "child")
+    await family_service.cancel(db, link.id, admin_user)
+
+    assert await family_service.list_outgoing(db, admin_user) == []
+    assert await family_service.list_incoming(db, learner_user) == []
+    # row gone entirely — re-request should succeed
+    await family_service.send_request(db, admin_user, learner_user.email, "child")
+
+
+async def test_cancel_by_non_sender_raises_403(db, admin_user, learner_user):
+    link = await family_service.send_request(db, admin_user, learner_user.email, "child")
+    with pytest.raises(HTTPException) as exc_info:
+        await family_service.cancel(db, link.id, learner_user)
+    assert exc_info.value.status_code == 403
+
+
+async def test_cancel_non_pending_raises_409(db, admin_user, learner_user):
+    link = await family_service.send_request(db, admin_user, learner_user.email, "child")
+    await family_service.accept(db, link.id, learner_user)
+    with pytest.raises(HTTPException) as exc_info:
+        await family_service.cancel(db, link.id, admin_user)
+    assert exc_info.value.status_code == 409
+
+
 async def test_list_my_links_only_includes_accepted(db, admin_user, learner_user, author_user):
     pending = await family_service.send_request(db, admin_user, learner_user.email, "child")
     accepted = await family_service.send_request(db, admin_user, author_user.email, "child")
