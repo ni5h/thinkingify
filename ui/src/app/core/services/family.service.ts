@@ -54,6 +54,16 @@ export class FamilyService {
     this.reloadAll();
   }
 
+  async resend(linkId: string): Promise<void> {
+    await firstValueFrom(this.http.post(`/api/v1/family/requests/${linkId}/resend`, {}));
+    this.reloadAll();
+  }
+
+  async cancel(linkId: string): Promise<void> {
+    await firstValueFrom(this.http.post(`/api/v1/family/requests/${linkId}/cancel`, {}));
+    this.reloadAll();
+  }
+
   async unlink(linkId: string): Promise<void> {
     await firstValueFrom(this.http.delete(`/api/v1/family/links/${linkId}`));
     this.reloadAll();
