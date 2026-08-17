@@ -55,6 +55,7 @@ async def create(db: AsyncSession, author: User, data: ContentCreate) -> Content
         author_id=author.id,
         topic_id=data.topic_id,
         style=data.style,
+        diary_theme=data.diary_theme,
     )
     db.add(content)
     await db.commit()

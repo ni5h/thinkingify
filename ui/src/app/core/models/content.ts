@@ -15,6 +15,9 @@ export interface ContentListItem {
   // from before the style set last changed. WritingStyle (strict) is only
   // enforced on writes, see ContentDraft below.
   style: string | null;
+  // Diary fields (style === 'diary_entry' only, else null).
+  diary_theme: string | null;
+  entry_date: string | null;
   published_at: string | null;
   updated_at: string;
   // Only populated on the public /content/published* endpoints.
@@ -34,4 +37,5 @@ export interface ContentDraft {
   feature_image_url?: string;
   topic_id?: string;
   style?: WritingStyle;
+  diary_theme?: string;
 }

@@ -37,6 +37,16 @@ import { TOPIC_THEMES } from '../../../core/models/theme';
         </div>
         <app-icon name="arrow-right" [size]="20" class="text-amber shrink-0" />
       </button>
+      <a
+        routerLink="/rowling/diary"
+        class="rounded-2xl border border-moss/30 bg-moss/5 shadow-sm p-5 hover:shadow-md transition-shadow flex items-center justify-between gap-3"
+      >
+        <div>
+          <h3 class="font-display text-lg text-ink">My Diary</h3>
+          <p class="text-sm text-muted mt-1">Write about your day &mdash; just for you.</p>
+        </div>
+        <app-icon name="arrow-right" [size]="20" class="text-moss shrink-0" />
+      </a>
       @for (theme of themeCards(); track theme.slug) {
         <a
           [routerLink]="['/rowling/themes', theme.slug]"
@@ -95,7 +105,10 @@ export default class RoomLandingComponent {
   // Not filtered to .topic_id-having posts — BlogService.all() is already
   // scoped to the current user server-side, so this safely includes
   // "Write your own" freeform posts (no topic_id) alongside topic-linked ones.
-  private readonly ownPosts = computed(() => this.blog.all() ?? []);
+  // Diary entries are excluded — they have their own "My Diary" listing.
+  private readonly ownPosts = computed(() =>
+    (this.blog.all() ?? []).filter((p) => p.style !== 'diary_entry')
+  );
   readonly drafts = computed(() => this.ownPosts().filter((p) => p.status === 'draft'));
   readonly published = computed(() => this.ownPosts().filter((p) => p.status === 'published'));
 }

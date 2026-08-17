@@ -51,6 +51,22 @@ async def test_send_message_blank_content_succeeds_without_topic(db, learner_use
     assert len(history) == 2
 
 
+async def test_send_message_diary_entry_uses_diary_prompt(db, learner_user):
+    # A diary entry (topic-less, style diary_entry) coaches with the diary
+    # prompt and must not 400.
+    content = await _make_content(db, learner_user, topic_id=None, style="diary_entry")
+    with patch(
+        "app.services.anthropic_client.send_structured",
+        _mock_reply("What was the best part of your day?", ladder_level=1),
+    ) as mock:
+        reply = await companion_service.send_message(db, learner_user, content, uuid.uuid4(), "hi")
+
+    assert reply.fact_leak_blocked is False
+    assert "?" in reply.body
+    system_prompt = mock.call_args.kwargs["system"]
+    assert "diary" in system_prompt.lower()
+
+
 async def test_send_message_blank_content_skips_fact_leak_guard(db, learner_user):
     # There is no source material for a blank post, so a reply that would
     # trip the topic fact-leak guard must NOT be blocked here.
