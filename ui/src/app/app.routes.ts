@@ -61,6 +61,16 @@ export const routes: Routes = [
     canActivate: [authGuard],
   },
   {
+    path: 'rowling/diary',
+    loadComponent: () => import('./features/rowling/diary/diary-landing.component'),
+    canActivate: [authGuard],
+  },
+  {
+    path: 'rowling/diary/:id',
+    loadComponent: () => import('./features/rowling/diary/diary-editor.component'),
+    canActivate: [authGuard],
+  },
+  {
     path: 'rowling/themes/:slug',
     loadComponent: () => import('./features/rowling/theme-topics/theme-topics.component'),
     canActivate: [authGuard],

@@ -257,6 +257,83 @@ def _build_blank_system_prompt(
     )
 
 
+# A diary entry is the kid writing about their own day. Unlike the writing
+# companion (which must never suggest content), here the coach is EXPLICITLY
+# allowed to suggest what to write *about* — angles, moments, feelings — since
+# the "material" is the kid's own life, not a topic to retell. It still never
+# ghostwrites pasteable prose. No source facts exist, so no fact-leak guard.
+_DIARY_SYSTEM_PROMPT_TEMPLATE = """\
+You are a warm, curious friend sitting next to a child (around 9 years old) \
+while they write in their own private diary about their day, in a kids' app \
+called Thinkingify. You are gentle, genuinely interested, and easy to talk to.
+
+Your job is to help them notice and remember their day, and to find things \
+worth writing down. Lead with real curiosity about THEM.
+
+How to help:
+- Ask about their day: what was the most interesting, funny, tricky, or \
+happiest part? What surprised them? Who were they with? How did they feel?
+- You MAY suggest things they could write *about* — a moment, a feeling, a \
+detail to add ("You could describe what the playground smelled like after \
+the rain — what do you remember?"). Suggesting subjects and angles is good.
+- But never write the actual diary sentences for them. Don't produce prose \
+they could copy-paste. Speak to them ("you could..."), never in their voice \
+("Today I...").
+- Follow their feelings. If something was hard or sad, be kind and let them \
+say more; don't rush to fix it.
+
+Hard rules:
+- Never write a sentence or phrase they could paste straight into the entry.
+- Every reply ends in a question or a small, gentle nudge.
+- If they ask you to just write it for them: be kind, and turn it back into \
+a question that helps them find their own words.
+
+Response ladder — use the lowest that fits; only escalate if they stay stuck \
+on the same thing across turns (reset toward 1 when they move on):
+1. Open question — "What was the best part of today?"
+2. Point to their own material — "You wrote 'football' in your notes — what \
+happened in the game?"
+3. Reduce scope — "Just tell me one thing that made you smile today."
+4. Process nudge — "Want to just jot a few messy words and we'll shape them \
+after?"
+
+Praise policy: no gushing ("amazing!"). A light "Ooh, tell me more" is fine.
+
+You must always reply by calling the submit_reply tool. `reply` is the warm, \
+short message the kid sees. `ladder_level` is your honest assessment. \
+`direct_answer_requested` is true only if they asked you to write it for them.
+{session_state}
+
+--- The kid's own notes ---
+{notes_context}
+
+--- The kid's diary entry so far ---
+{draft_context}
+"""
+
+
+def _build_diary_system_prompt(
+    *,
+    notes_body: str,
+    draft_markdown: str,
+    current_ladder_level: int,
+    consecutive_direct_answer_count: int,
+) -> str:
+    session_state = f"\nCurrent ladder level so far this session: {current_ladder_level}."
+    if consecutive_direct_answer_count >= 2:
+        session_state += (
+            " The kid has now asked you to write it for them more than once in a row. "
+            "Gently and kindly name this pattern out loud before redirecting again — "
+            "don't pretend not to notice."
+        )
+
+    return _DIARY_SYSTEM_PROMPT_TEMPLATE.format(
+        session_state=session_state,
+        notes_context=notes_body.strip() or "(no notes yet)",
+        draft_context=draft_markdown.strip() or "(nothing written yet)",
+    )
+
+
 def _ends_in_nudge(reply: str) -> bool:
     return reply.strip().endswith("?")
 
@@ -366,7 +443,14 @@ async def send_message(
     # a bug in the leak/repair logic all fail the same way, soft toward
     # the kid (an in-character reply) and loud toward the logs.
     try:
-        if topic is None:
+        if topic is None and content.style == "diary_entry":
+            system_prompt = _build_diary_system_prompt(
+                notes_body=note.body,
+                draft_markdown=content.content_markdown,
+                current_ladder_level=current_ladder_level,
+                consecutive_direct_answer_count=consecutive_direct_answer_count,
+            )
+        elif topic is None:
             system_prompt = _build_blank_system_prompt(
                 notes_body=note.body,
                 draft_markdown=content.content_markdown,

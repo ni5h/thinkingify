@@ -1,8 +1,8 @@
 import enum
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, String, Text
+from sqlalchemy import Date, DateTime, Enum, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -45,3 +45,9 @@ class Content(Base, TimestampMixin):
     # a Literal[...] on the Pydantic schema instead.
     topic_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("topics.id"), nullable=True)
     style: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    # Diary fields (style == "diary_entry" only, else NULL). entry_date is the
+    # calendar day the entry belongs to — the one-per-day lookup key, supplied
+    # by the client in its local timezone. diary_theme is the selected visual
+    # skin (a DIARY_THEMES key), also a plain string like `style`.
+    diary_theme: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    entry_date: Mapped[date | None] = mapped_column(Date, nullable=True)

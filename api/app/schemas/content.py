@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
@@ -16,6 +16,7 @@ class ContentCreate(BaseModel):
     content_markdown: str = ""
     topic_id: uuid.UUID | None = None
     style: WritingStyle | None = None
+    diary_theme: str | None = None
 
 
 class ContentUpdate(BaseModel):
@@ -25,6 +26,7 @@ class ContentUpdate(BaseModel):
     feature_image_url: str | None = None
     topic_id: uuid.UUID | None = None
     style: WritingStyle | None = None
+    diary_theme: str | None = None
 
 
 class ContentOut(BaseModel):
@@ -44,6 +46,8 @@ class ContentOut(BaseModel):
     # changed (WritingStyle is enforced on writes only, see ContentCreate/
     # ContentUpdate above).
     style: str | None
+    diary_theme: str | None = None
+    entry_date: date | None = None
     published_at: datetime | None
     created_at: datetime
     updated_at: datetime
@@ -65,6 +69,8 @@ class ContentListItem(BaseModel):
     status: ContentStatus
     topic_id: uuid.UUID | None
     style: str | None
+    diary_theme: str | None = None
+    entry_date: date | None = None
     published_at: datetime | None
     updated_at: datetime
     author: UserPublicSummary | None = None
