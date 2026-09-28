@@ -40,7 +40,7 @@ class CompanionMessage(Base, TimestampMixin):
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     session_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     role: Mapped[CompanionMessageRole] = mapped_column(
-        Enum(CompanionMessageRole, name="companionmessagerole"), nullable=False
+        Enum(CompanionMessageRole, name="companionmessagerole", schema="thinkingify"), nullable=False
     )
     body: Mapped[str] = mapped_column(Text, nullable=False)
     ladder_level: Mapped[int | None] = mapped_column(Integer, nullable=True)

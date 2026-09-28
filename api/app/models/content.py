@@ -26,7 +26,7 @@ class Content(Base, TimestampMixin):
     content_markdown: Mapped[str] = mapped_column(Text, nullable=False, default="")
     feature_image_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     status: Mapped[ContentStatus] = mapped_column(
-        Enum(ContentStatus, name="contentstatus"), nullable=False, default=ContentStatus.draft
+        Enum(ContentStatus, name="contentstatus", schema="thinkingify"), nullable=False, default=ContentStatus.draft
     )
     author_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     # Explicit DateTime(timezone=True): without it SQLAlchemy infers a bare

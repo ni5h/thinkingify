@@ -43,13 +43,13 @@ class SpellingFlag(Base, TimestampMixin):
     content_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("content.id"), nullable=False)
     word: Mapped[str] = mapped_column(String(100), nullable=False)
     error_type: Mapped[SpellingErrorType] = mapped_column(
-        Enum(SpellingErrorType, name="spellingerrortype"), nullable=False
+        Enum(SpellingErrorType, name="spellingerrortype", schema="thinkingify"), nullable=False
     )
     context_sentence: Mapped[str] = mapped_column(Text, nullable=False)
     suggested_correction: Mapped[str | None] = mapped_column(Text, nullable=True)
     hint: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[SpellingFlagStatus] = mapped_column(
-        Enum(SpellingFlagStatus, name="spellingflagstatus"), nullable=False, default=SpellingFlagStatus.pending
+        Enum(SpellingFlagStatus, name="spellingflagstatus", schema="thinkingify"), nullable=False, default=SpellingFlagStatus.pending
     )
     hint_revealed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

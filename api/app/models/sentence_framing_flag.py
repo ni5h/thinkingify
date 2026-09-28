@@ -41,7 +41,7 @@ class SentenceFramingFlag(Base, TimestampMixin):
     concept_id: Mapped[str] = mapped_column(String(50), nullable=False)
     sentences: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[SentenceFramingFlagStatus] = mapped_column(
-        Enum(SentenceFramingFlagStatus, name="sentenceframingflagstatus"),
+        Enum(SentenceFramingFlagStatus, name="sentenceframingflagstatus", schema="thinkingify"),
         nullable=False,
         default=SentenceFramingFlagStatus.pending,
     )
