@@ -31,7 +31,7 @@ class User(Base, TimestampMixin):
     # identity going forward.
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     avatar_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
-    role: Mapped[UserRole] = mapped_column(Enum(UserRole, name="userrole"), nullable=False)
+    role: Mapped[UserRole] = mapped_column(Enum(UserRole, name="userrole", schema="thinkingify"), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     # Null until the "Complete your profile" step is done. Independent of
@@ -39,7 +39,7 @@ class User(Base, TimestampMixin):
     # FamilyLink's per-link guardian/child orientation — this is a
     # standing fact about the account itself, editable later in Settings.
     account_type: Mapped[AccountType | None] = mapped_column(
-        Enum(AccountType, name="accounttype"), nullable=True
+        Enum(AccountType, name="accounttype", schema="thinkingify"), nullable=True
     )
     first_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     last_name: Mapped[str | None] = mapped_column(String(100), nullable=True)

@@ -42,14 +42,14 @@ class PuzzleGameProgress(Base, TimestampMixin):
     # service layer instead.
     game_id: Mapped[str] = mapped_column(String(50), nullable=False)
     current_tier: Mapped[PuzzleTier] = mapped_column(
-        Enum(PuzzleTier, name="puzzletier"), nullable=False, default=PuzzleTier.trial
+        Enum(PuzzleTier, name="puzzletier", schema="thinkingify"), nullable=False, default=PuzzleTier.trial
     )
     variations_completed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     # Ratchet-only high-water mark, separate from current_tier so a future
     # "replay an earlier tier" feature can move current_tier backward
     # without losing the true highest point reached.
     highest_tier_unlocked: Mapped[PuzzleTier] = mapped_column(
-        Enum(PuzzleTier, name="puzzletier"), nullable=False, default=PuzzleTier.trial
+        Enum(PuzzleTier, name="puzzletier", schema="thinkingify"), nullable=False, default=PuzzleTier.trial
     )
 
 
@@ -62,7 +62,7 @@ class PuzzleAttempt(Base, TimestampMixin):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
     game_id: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
-    tier: Mapped[PuzzleTier] = mapped_column(Enum(PuzzleTier, name="puzzletier"), nullable=False)
+    tier: Mapped[PuzzleTier] = mapped_column(Enum(PuzzleTier, name="puzzletier", schema="thinkingify"), nullable=False)
     variation_index: Mapped[int] = mapped_column(Integer, nullable=False)
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     completed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

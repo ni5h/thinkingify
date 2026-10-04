@@ -26,7 +26,7 @@ class FamilyLink(Base, TimestampMixin):
     # what restricts accept/decline to "the other party."
     requested_by: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     status: Mapped[FamilyLinkStatus] = mapped_column(
-        Enum(FamilyLinkStatus, name="familylinkstatus"), nullable=False, default=FamilyLinkStatus.pending
+        Enum(FamilyLinkStatus, name="familylinkstatus", schema="thinkingify"), nullable=False, default=FamilyLinkStatus.pending
     )
     accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 

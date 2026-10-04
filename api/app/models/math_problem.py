@@ -39,7 +39,7 @@ class MathProblem(Base, TimestampMixin):
     # Hidden — never in a public schema.
     answer: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     answer_kind: Mapped[MathAnswerKind] = mapped_column(
-        Enum(MathAnswerKind, name="mathanswerkind"), nullable=False, default=MathAnswerKind.integer
+        Enum(MathAnswerKind, name="mathanswerkind", schema="thinkingify"), nullable=False, default=MathAnswerKind.integer
     )
     # Hidden — the coach's private context, and the post-solve reveal.
     solution_markdown: Mapped[str] = mapped_column(Text, nullable=False, default="")
@@ -48,7 +48,7 @@ class MathProblem(Base, TimestampMixin):
     concept_tags: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list, server_default="[]")
     difficulty: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     status: Mapped[MathProblemStatus] = mapped_column(
-        Enum(MathProblemStatus, name="mathproblemstatus"), nullable=False, default=MathProblemStatus.draft
+        Enum(MathProblemStatus, name="mathproblemstatus", schema="thinkingify"), nullable=False, default=MathProblemStatus.draft
     )
     order_index: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     author_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)

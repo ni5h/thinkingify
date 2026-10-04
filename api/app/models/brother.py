@@ -36,7 +36,7 @@ class BrotherTierProgress(Base, TimestampMixin):
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     tier_id: Mapped[str] = mapped_column(String(10), nullable=False)
     status: Mapped[BrotherTierStatus] = mapped_column(
-        Enum(BrotherTierStatus, name="brothertierstatus"), nullable=False, default=BrotherTierStatus.locked
+        Enum(BrotherTierStatus, name="brothertierstatus", schema="thinkingify"), nullable=False, default=BrotherTierStatus.locked
     )
     baseline_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
     mastered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -77,6 +77,6 @@ class BrotherSession(Base, TimestampMixin):
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     questions: Mapped[list[dict]] = mapped_column(JSON, nullable=False, default=list)
     status: Mapped[BrotherSessionStatus] = mapped_column(
-        Enum(BrotherSessionStatus, name="brothersessionstatus"), nullable=False, default=BrotherSessionStatus.active
+        Enum(BrotherSessionStatus, name="brothersessionstatus", schema="thinkingify"), nullable=False, default=BrotherSessionStatus.active
     )
     answered_indexes: Mapped[list[int]] = mapped_column(JSON, nullable=False, default=list)

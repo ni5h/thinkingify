@@ -35,7 +35,7 @@ class Topic(Base, TimestampMixin):
     # there's no need for Postgres's native array query operators here.
     themes: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list, server_default="[]")
     status: Mapped[TopicStatus] = mapped_column(
-        Enum(TopicStatus, name="topicstatus"), nullable=False, default=TopicStatus.draft
+        Enum(TopicStatus, name="topicstatus", schema="thinkingify"), nullable=False, default=TopicStatus.draft
     )
     # Admin-controlled display order on the room landing grid — no algorithmic/random selection in v1.
     order_index: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
