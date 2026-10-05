@@ -94,8 +94,9 @@ export default class StudioLoginComponent implements AfterViewInit {
     try {
       await this.authService.handleGoogleCredential(idToken);
       await this.router.navigateByUrl(this.returnUrl);
-    } catch {
-      this.error.set('Sign in failed — this Google account may not be authorized for Thinkingify Studio.');
+    } catch (err) {
+      const detail = (err as { error?: { detail?: string } })?.error?.detail;
+      this.error.set(detail ?? 'Sign in failed. Please try again.');
     } finally {
       this.signingIn.set(false);
     }
