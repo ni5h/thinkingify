@@ -22,7 +22,9 @@ class Settings(BaseSettings):
     jwt_access_token_expire_minutes: int = 30
     jwt_refresh_token_expire_days: int = 30
 
-    google_client_id: str = ""
+    # Public OAuth client id (not a secret — it's embedded in the frontend
+    # bundle). Defaulted so sign-in works even where the env var is unset.
+    google_client_id: str = "631847061926-a9g9rplpf07k17rfeu4n24b0d5dajduc.apps.googleusercontent.com"
 
     supabase_url: str = ""
     supabase_anon_key: str = ""

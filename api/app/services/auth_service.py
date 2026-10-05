@@ -1,3 +1,4 @@
+import logging
 import uuid
 
 from fastapi import HTTPException, status
@@ -14,6 +15,13 @@ from app.core.security import create_access_token, create_refresh_token, decode_
 from app.models.user import User, UserRole
 from app.schemas.auth import AccessTokenResponse, TokenResponse
 from app.schemas.user import UserOut
+
+_logger = logging.getLogger(__name__)
+
+# Public OAuth client id (safe to hardcode — it's embedded in the frontend
+# bundle). Used as a fallback so sign-in still verifies if GOOGLE_CLIENT_ID is
+# unset or blank in a deployment, which is the usual cause of "sign in failed".
+_GOOGLE_CLIENT_ID = "631847061926-a9g9rplpf07k17rfeu4n24b0d5dajduc.apps.googleusercontent.com"
 
 
 def _issue_tokens(user: User) -> TokenResponse:
@@ -73,12 +81,23 @@ async def _get_or_create_user(
 
 
 async def google_sign_in(token: str, db: AsyncSession) -> TokenResponse:
+    audience = settings.google_client_id or _GOOGLE_CLIENT_ID
     # verify_oauth2_token makes a blocking network call (fetching/
     # validating Google's certs) — run it off the event loop so it
-    # doesn't stall every other in-flight request on this worker.
-    info = await run_in_threadpool(
-        google_id_token.verify_oauth2_token, token, google_requests.Request(), settings.google_client_id
-    )
+    # doesn't stall every other in-flight request on this worker. It raises
+    # ValueError on any bad token (wrong audience, expired, bad signature);
+    # turn that into a clean 401 instead of an opaque 500, and log the real
+    # reason server-side.
+    try:
+        info = await run_in_threadpool(
+            google_id_token.verify_oauth2_token, token, google_requests.Request(), audience
+        )
+    except ValueError as exc:
+        _logger.warning("Google token verification failed (audience=%s): %s", audience, exc)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not verify your Google sign-in. Please try again.",
+        ) from exc
     user = await _get_or_create_user(
         db,
         google_sub=info["sub"],
