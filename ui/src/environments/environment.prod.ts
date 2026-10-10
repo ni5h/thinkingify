@@ -1,5 +1,8 @@
 export const environment = {
   production: true,
+  // Class 4 pilot: hides unfinished rooms/modules and applies the new look.
+  // Toggle off to restore the pre-pilot behavior exactly.
+  pilotMode: true,
   apiBaseUrl: 'https://api.thinkingify.com',
   // Dedicated Thinkingify OAuth client (replaces the reused sweet_pills
   // one). https://thinkingify.com must be on this client's "Authorized

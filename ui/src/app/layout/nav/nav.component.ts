@@ -3,6 +3,7 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
 import { IconComponent, IconName } from '../../shared/components/icon/icon.component';
 import { AuthService } from '../../core/services/auth.service';
 import { UserProfileService } from '../../core/services/user-profile.service';
+import { FeatureFlagService } from '../../core/services/feature-flag.service';
 
 interface NavItem {
   label: string;
@@ -10,6 +11,9 @@ interface NavItem {
   icon: IconName;
 }
 
+// Drives both the desktop sidebar and the mobile bottom tab bar. Normally 6
+// tabs; the Class 4 pilot filters this to 4 (drops Einstein + Progress, the
+// unfinished rooms) via `items` below. Flag off restores all 6.
 const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', path: '/dashboard', icon: 'home' },
   { label: 'Rowling', path: '/rowling', icon: 'rowling' },
@@ -18,6 +22,10 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Sherlock Holmes', path: '/sherlock', icon: 'sherlock' },
   { label: 'Progress', path: '/progress', icon: 'progress' },
 ];
+
+// Hidden from the nav during the pilot (routes also redirect — see
+// pilotRedirectGuard). Kept as paths so the filter survives label changes.
+const PILOT_HIDDEN_PATHS = new Set(['/einstein', '/progress']);
 
 @Component({
   selector: 'app-nav',
@@ -57,9 +65,9 @@ const NAV_ITEMS: NavItem[] = [
         }
       </ul>
 
-      <!-- User menu: deliberately separate from the 6-item NAV_ITEMS array
-           above (which also drives the mobile bottom tab bar, kept fixed
-           at 6 tabs) -->
+      <!-- User menu: deliberately separate from the NAV_ITEMS array above
+           (which also drives the mobile bottom tab bar — 6 tabs normally,
+           4 during the Class 4 pilot) -->
       <div class="mt-auto px-3 py-4 border-t border-cloud">
         @if (auth.isAuthenticated()) {
           <a routerLink="/profile" [attr.title]="collapsed() ? 'Profile' : null" class="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-cloud/60 transition-colors">
@@ -93,7 +101,7 @@ const NAV_ITEMS: NavItem[] = [
 
     <!-- Mobile top bar: the desktop sidebar's wordmark-to-/ link has no
          equivalent in the bottom tab bar below (which is deliberately just
-         the 6 module tabs, not a 7th "mission page" tab), so give mobile a
+         the module tabs, not a "mission page" tab), so give mobile a
          separate way back to / here. Right side is the same user-menu entry
          point as the desktop sidebar footer. -->
     <div class="md:hidden fixed top-0 left-0 right-0 z-10 bg-paper border-b border-cloud px-4 py-3 flex items-center justify-between">
@@ -133,9 +141,12 @@ const NAV_ITEMS: NavItem[] = [
 export class NavComponent {
   readonly auth = inject(AuthService);
   private readonly userProfile = inject(UserProfileService);
+  private readonly flags = inject(FeatureFlagService);
   readonly me = this.userProfile.me;
 
-  readonly items = NAV_ITEMS;
+  readonly items = this.flags.pilotMode
+    ? NAV_ITEMS.filter((item) => !PILOT_HIDDEN_PATHS.has(item.path))
+    : NAV_ITEMS;
   readonly collapsed = signal(false);
 
   readonly displayName = computed(() => this.me()?.first_name || this.me()?.name || 'You');

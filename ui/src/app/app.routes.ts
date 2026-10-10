@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { authGuard, noAuthGuard, noPuzzleAuthGuard, sherlockAuthGuard } from './core/auth.guard';
+import { authGuard, noAuthGuard, noPuzzleAuthGuard, pilotRedirectGuard, sherlockAuthGuard } from './core/auth.guard';
 
 export const routes: Routes = [
   { path: '', loadComponent: () => import('./features/vision/vision.component') },
@@ -54,7 +54,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/ramanujan/problem-solver/problem-solver.component'),
     canActivate: [authGuard],
   },
-  { path: 'einstein', loadComponent: () => import('./features/einstein/einstein.component') },
+  {
+    path: 'einstein',
+    loadComponent: () => import('./features/einstein/einstein.component'),
+    canActivate: [pilotRedirectGuard],
+  },
   {
     path: 'rowling',
     loadComponent: () => import('./features/rowling/room-landing/room-landing.component'),
@@ -132,5 +136,9 @@ export const routes: Routes = [
   },
   { path: 'blog/:slug', loadComponent: () => import('./features/blog/blog-post.component') },
   { path: 'blog', loadComponent: () => import('./features/blog/blog-home.component') },
-  { path: 'progress', loadComponent: () => import('./features/progress/progress.component') },
+  {
+    path: 'progress',
+    loadComponent: () => import('./features/progress/progress.component'),
+    canActivate: [pilotRedirectGuard],
+  },
 ];

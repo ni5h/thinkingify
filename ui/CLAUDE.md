@@ -1,5 +1,12 @@
 # Thinkingify — Claude Code Context
 
+## Class 4 pilot (started 2026-10-10)
+
+Direction: CBSE Class 4 Maths + EVS, original concept map, olympiad-style "Crack it" track, parent-first onboarding.
+Spec and phase briefs: `docs/pilot/SPEC.md` and `docs/pilot/PILOT-BRIEFS.md`. Work one phase at a time, on its own branch.
+Private reference material (textbook scans, olympiad banks) is never committed or sent to models.
+No leaderboards, streaks, points, ranks or countdown pressure anywhere.
+
 ## Custom domain (last updated 2026-07-18)
 
 Moved off the GitHub Pages project-page URL to a custom domain (bought on

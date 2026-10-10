@@ -2,6 +2,7 @@ import { Component, inject } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { BlogService } from '../../core/services/blog.service';
+import { FeatureFlagService } from '../../core/services/feature-flag.service';
 
 @Component({
   selector: 'app-blog-home',
@@ -10,9 +11,11 @@ import { BlogService } from '../../core/services/blog.service';
   template: `
     <div class="flex items-baseline justify-between gap-4">
       <h1 class="font-display text-3xl">Blog</h1>
-      <a routerLink="/studio" class="rounded-xl px-3 py-2 text-sm font-medium text-muted hover:bg-cloud/60 hover:text-ink transition-colors">
-        Thinkingify Studio
-      </a>
+      @if (!pilotMode) {
+        <a routerLink="/studio" class="rounded-xl px-3 py-2 text-sm font-medium text-muted hover:bg-cloud/60 hover:text-ink transition-colors">
+          Thinkingify Studio
+        </a>
+      }
     </div>
 
     @if ((posts() ?? []).length === 0) {
@@ -44,4 +47,5 @@ export default class BlogHomeComponent {
   private readonly blog = inject(BlogService);
 
   readonly posts = this.blog.published;
+  readonly pilotMode = inject(FeatureFlagService).pilotMode;
 }
