@@ -7,6 +7,37 @@ Spec and phase briefs: `docs/pilot/SPEC.md` and `docs/pilot/PILOT-BRIEFS.md`. Wo
 Private reference material (textbook scans, olympiad banks) is never committed or sent to models.
 No leaderboards, streaks, points, ranks or countdown pressure anywhere.
 
+### Phase 0 — Tidy & new look (shipped 2026-10-11, frontend only)
+
+Gated by `environment.pilotMode` (true in both envs; `FeatureFlagService` reads it).
+Flag **off restores the pre-pilot behavior exactly** — nothing is deleted, only
+routing/nav/look change.
+
+- **Nav + routing**: `NAV_ITEMS` filters to 4 tabs under pilot (drops Einstein +
+  Progress, both sidebar and bottom bar); `pilotRedirectGuard` sends `/einstein`
+  and `/progress` to `/dashboard`; the Studio CMS link is hidden on the public blog.
+- **Design tokens** (`tailwind.config.js` + `styles.css`): new cool palette (token
+  *names* unchanged so ~80 components were untouched; only values), room tones/tints
+  (`room-ramanujan|einstein|rowling|sherlock` + `-tint`), `cloud-soft`; display font
+  Fraunces → **Bricolage Grotesque**; friendlier radii (cards ~22px, buttons 14px);
+  `borderRadius.sm:2px` override removed. All text-on-color pairs verified WCAG AA
+  (sherlock tone is `#94590C`, darkened from the brief's `#A8650F` to pass on its tint).
+- **Home** (`features/dashboard`): new child home — child chip, "Today's chapter" +
+  "Crack it" cards, Rooms grid. Fed by `HomeService.getContinue()`/`crackIt()` (pure
+  `selectContinue`/`selectCrackIt` picking the child's latest Rowling draft / Brothers
+  tier / Kakooma op). **No streak/points/badges.** Phase 3 repoints the source without
+  touching the UI.
+- **`shared/components/room-shell`**: reusable room layout (title + chapter slot +
+  3-col doors grid + how-it-works slot; recommended door ringed; tone via inline
+  colors). Applied to Ramanujan (Learn + Brothers) and Sherlock (Kakooma); Rowling
+  left restyle-only.
+- **Parent landing** (`features/vision`): rewritten as the Class 4 pilot landing (the
+  old `vision-*` section components are now unused). CTA → existing sign-in until
+  Phase 6.
+- **Tests**: first specs in the repo + ChromeHeadless karma (`karma.conf.js`, needs
+  `CHROME_BIN`). `ng test` runs FeatureFlag, nav filtering, `getContinue` selection,
+  and room-shell door rendering.
+
 ## Custom domain (last updated 2026-07-18)
 
 Moved off the GitHub Pages project-page URL to a custom domain (bought on
