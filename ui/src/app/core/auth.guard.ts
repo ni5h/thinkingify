@@ -22,6 +22,17 @@ export const authGuard: CanActivateFn = async (_route, state: RouterStateSnapsho
     : router.createUrlTree(['/studio/login'], { queryParams: { returnUrl: state.url } });
 };
 
+// Curriculum authoring is admin-only (role set via the backend ADMIN_EMAILS
+// allowlist). Pair with authGuard so unauthenticated users hit login first;
+// non-admins land back on the Studio dashboard.
+export const adminGuard: CanActivateFn = async () => {
+  const authService = inject(AuthService);
+  const router = inject(Router);
+
+  await authService.ready;
+  return authService.currentUser()?.role === 'admin' ? true : router.createUrlTree(['/studio']);
+};
+
 export const noAuthGuard: CanActivateFn = async () => {
   const authService = inject(AuthService);
   const router = inject(Router);

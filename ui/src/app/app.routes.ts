@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { authGuard, noAuthGuard, noPuzzleAuthGuard, pilotRedirectGuard, sherlockAuthGuard } from './core/auth.guard';
+import { adminGuard, authGuard, noAuthGuard, noPuzzleAuthGuard, pilotRedirectGuard, sherlockAuthGuard } from './core/auth.guard';
 
 export const routes: Routes = [
   { path: '', loadComponent: () => import('./features/vision/vision.component') },
@@ -128,6 +128,31 @@ export const routes: Routes = [
     path: 'studio/topics',
     loadComponent: () => import('./features/studio/topics-list/topics-list.component'),
     canActivate: [authGuard],
+  },
+  {
+    path: 'studio/curriculum/items/new',
+    loadComponent: () => import('./features/studio/curriculum/item-editor.component'),
+    canActivate: [authGuard, adminGuard],
+  },
+  {
+    path: 'studio/curriculum/items/:id/edit',
+    loadComponent: () => import('./features/studio/curriculum/item-editor.component'),
+    canActivate: [authGuard, adminGuard],
+  },
+  {
+    path: 'studio/curriculum/items',
+    loadComponent: () => import('./features/studio/curriculum/item-list.component'),
+    canActivate: [authGuard, adminGuard],
+  },
+  {
+    path: 'studio/curriculum/review',
+    loadComponent: () => import('./features/studio/curriculum/review-queue.component'),
+    canActivate: [authGuard, adminGuard],
+  },
+  {
+    path: 'studio/curriculum',
+    loadComponent: () => import('./features/studio/curriculum/curriculum-tree.component'),
+    canActivate: [authGuard, adminGuard],
   },
   {
     path: 'studio',
