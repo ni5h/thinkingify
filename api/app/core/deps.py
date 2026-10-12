@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.security import decode_token
-from app.models.user import User
+from app.models.user import User, UserRole
 
 bearer_scheme = HTTPBearer()
 
@@ -39,3 +39,11 @@ async def get_current_user(
     if user is None:
         raise credentials_exception
     return user
+
+
+async def require_admin(current_user: Annotated[User, Depends(get_current_user)]) -> User:
+    """Gate for curriculum authoring — only `admin`-role accounts (see
+    settings.admin_emails) may write the concept map."""
+    if current_user.role != UserRole.admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admins only.")
+    return current_user

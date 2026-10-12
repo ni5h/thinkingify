@@ -44,9 +44,18 @@ class Settings(BaseSettings):
 
     cors_origins: str = "http://localhost:4200"
 
+    # Comma-separated emails that get the `admin` role on sign-in — the only
+    # accounts allowed to author the curriculum (concept map). Everyone else
+    # stays a learner. Sign-up is still open; this only grants authoring rights.
+    admin_emails: str = ""
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    @property
+    def admin_email_set(self) -> set[str]:
+        return {e.strip().lower() for e in self.admin_emails.split(",") if e.strip()}
 
 
 @lru_cache

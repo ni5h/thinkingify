@@ -1,8 +1,10 @@
 from fastapi import APIRouter
 
+from app.api.v1.admin_curriculum import router as admin_curriculum_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.brothers import router as brothers_router
 from app.api.v1.content import router as content_router
+from app.api.v1.curriculum import router as curriculum_router
 from app.api.v1.diary import router as diary_router
 from app.api.v1.family import router as family_router
 from app.api.v1.math import router as math_router
@@ -12,9 +14,11 @@ from app.api.v1.uploads import router as uploads_router
 from app.api.v1.users import router as users_router
 
 api_v1_router = APIRouter()
+api_v1_router.include_router(admin_curriculum_router)
 api_v1_router.include_router(auth_router)
 api_v1_router.include_router(brothers_router)
 api_v1_router.include_router(content_router)
+api_v1_router.include_router(curriculum_router)
 api_v1_router.include_router(diary_router)
 api_v1_router.include_router(family_router)
 api_v1_router.include_router(math_router)
