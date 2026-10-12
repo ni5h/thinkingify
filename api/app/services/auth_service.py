@@ -36,22 +36,28 @@ def _issue_tokens(user: User) -> TokenResponse:
     )
 
 
+def _role_for(email: str) -> UserRole:
+    # Open sign-up: any Google account is a learner, except emails on the
+    # ADMIN_EMAILS allowlist, which get `admin` (the only role that can author
+    # the curriculum — see core/deps.require_admin). Ownership still gates
+    # everything else (content/topic assert_owner).
+    return UserRole.admin if email.lower() in settings.admin_email_set else UserRole.learner
+
+
 async def _get_or_create_user(
     db: AsyncSession, *, google_sub: str, email: str, name: str, avatar_url: str | None = None
 ) -> User:
-    # Open sign-up: any Google account (or the dev identity) gets a User
-    # row. `role` is a fixed default here — nothing reads it for
-    # authorization anymore (see api/app/core/deps.py), it only exists
-    # because the DB column is NOT NULL. Real access control is
-    # ownership-based (see content_service.assert_owner /
-    # topic_service.assert_owner), not role-based.
     result = await db.execute(select(User).where(User.google_sub == google_sub))
     user = result.scalar_one_or_none()
     if user is not None:
         # Existing user — deliberately not re-syncing name/avatar_url from
-        # Google here. Google is just the initial seed; a user who's
-        # customized first_name/avatar_url via the Profile page shouldn't
-        # have it silently clobbered by their next login.
+        # Google here. But promote to admin if their email was newly added to
+        # the allowlist (so granting authoring rights takes effect on next
+        # sign-in without a manual DB edit).
+        if user.role != UserRole.admin and _role_for(email) == UserRole.admin:
+            user.role = UserRole.admin
+            await db.commit()
+            await db.refresh(user)
         return user
 
     user = User(
@@ -60,7 +66,7 @@ async def _get_or_create_user(
         email=email,
         name=name,
         avatar_url=avatar_url,
-        role=UserRole.learner,
+        role=_role_for(email),
     )
     db.add(user)
     try:
