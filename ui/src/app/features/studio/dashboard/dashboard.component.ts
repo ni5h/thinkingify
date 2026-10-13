@@ -15,6 +15,11 @@ import { AuthService } from '../../../core/services/auth.service';
         <p class="text-muted mt-1">Thinkingify Studio</p>
       </div>
       <div class="flex gap-2">
+        @if (isAdmin()) {
+          <a routerLink="/studio/curriculum" class="rounded-xl border border-cloud bg-paper px-5 py-2.5 text-sm font-medium text-ink hover:border-moss hover:bg-cloud/60 transition-colors">
+            Curriculum
+          </a>
+        }
         <a routerLink="/studio/topics" class="rounded-xl border border-cloud bg-paper px-5 py-2.5 text-sm font-medium text-ink hover:border-moss hover:bg-cloud/60 transition-colors">
           Rowling topics
         </a>
@@ -68,6 +73,7 @@ export default class StudioDashboardComponent {
   private readonly blog = inject(BlogService);
   readonly auth = inject(AuthService);
 
+  readonly isAdmin = computed(() => this.auth.currentUser()?.role === 'admin');
   readonly posts = this.blog.all;
 
   readonly draftCount = computed(() => (this.posts() ?? []).filter((p) => p.status === 'draft').length);
