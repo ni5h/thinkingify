@@ -88,6 +88,34 @@ A hand-made sample session ("Place value", 6 cards) is in `docs/pilot/samples/pl
 
 The design principles apply to all three: no streaks, no leaderboards, non-punitive feedback, parent-facing reporting.
 
+## Adaptive engine
+
+The child should never be bored or stuck. The engine picks the next item; the child never sees a level, a score or a rank.
+
+- **Levels.** Every item has a difficulty level from 1 to 5, set at generation and corrected by review and by real answers.
+- **Placement.** The think-first question on each card is a free signal. After the cards, the first quick check starts at the level those answers suggest, not at a fixed level.
+- **Staircase.** Aim for about 75% correct, which is where children stay challenged but encouraged. Two right answers in a row move up a level; "not sure" or two wrong answers in a row move down one. A single slip never moves the level much.
+- **Signals.** A hint used counts as half credit. "Not sure" is information, not failure: it moves the level down gently and reopens the relevant card. Speed counts only against the child's own baseline, as in Brothers, and never on its own.
+- **"I already know this."** A short challenge of 3 hard items lets a confident child skip the cards and go straight to Write it down and Crack it. Two of three right earns the skip.
+- **Mastery and recall.** A concept is solid when the child answers at their level and then recalls it two days later. Mastery can slip back to "needs another look" at recall, which never re-locks anything.
+- **Crack it** picks the puzzle level from the same estimate.
+- **Parent view.** The weekly report shows "working at: comfortable / stretching" per concept, against the child's own past. A parent can override and set a concept easier or harder.
+- **Later.** Replace the staircase with Elo or Bayesian knowledge tracing once there is enough data from the pilot. Until then, log every answer with its item level so the data is ready.
+
+The sample lesson (`docs/pilot/samples/place-value-session.html`) implements the staircase in about 40 lines and prints how it adapted at the end, for the grown-up.
+
+## Content Studio
+
+Content is made in two places: offline scripts generate it, and a small review area in the app approves it. Nothing reaches a child without a person marking it live.
+
+- **Offline generation.** Scripts under `api/app/pipeline/` call swappable adapters for text, images and text-to-speech. Images use one fixed style reference so all cards look alike. Swapping a model or a voice changes one adapter, not the pipeline.
+- **Automatic pre-checks before a human sees anything.** Recompute every maths answer in code, check reading level for a nine-year-old, dedupe against the private reference set, and run a second-model critique that must find exactly one correct answer. Items that fail never enter the queue.
+- **Review queue.** An admin screen in the Studio area lists draft cards and items by chapter. The reviewer sees exactly what the child sees, with the audio playing, and rates against five checks: factually right, one correct answer, fits age 9, clear, calm tone. Actions: approve, request changes (with a comment), reject.
+- **Versioning.** Every item keeps its history. Editing an approved item returns it to review.
+- **Reports.** The in-app "report this question" button feeds a list in Studio; a report returns the item to draft.
+- **Teacher reviewers.** A reviewer role can rate and comment but cannot publish, and sees no child data. Agree the arrangement in writing with each teacher: what they review, how long it takes, and how they are thanked.
+- **Order of work.** Do not build the Studio first. Hand-make one chapter, test it with Neo, then build only the queue and reviewer role. Add generation adapters and pre-checks as the volume grows.
+
 ## Parent experience
 
 Parents sign up and consent first; the child never needs an email address.

@@ -170,6 +170,27 @@ Restyle `features/vision/vision.component.ts` into the parent landing page, usin
 
 ---
 
+## Adaptive engine (cross-cutting, built in Phase 3)
+
+See `SPEC.md`, "Adaptive engine". Implement in a service the Learn flow calls; the child UI never receives a level.
+
+- Add `difficulty` (1-5) to `item` if not already present, and an `answer_event` log: child, item, level at the time, result (right, wrong, unsure), hint used, ms taken, timestamp. Log every answer from the first day.
+- Placement from the think-first answers on the cards; staircase targeting ~75% correct; up after 2 right in a row, down after 1 "not sure" or 2 wrong in a row; hint used = half credit; "not sure" reopens the relevant card.
+- "I already know this" challenge: 3 hard items, skip the cards if 2 are right.
+- Speed is only ever compared with the child's own baseline (reuse `brother_service.py` logic).
+- Parent override for a concept: easier or harder.
+- Reference: the staircase in `docs/pilot/samples/place-value-session.html`.
+- Tests: level moves only after the stated streaks, "not sure" never counts as wrong, level is absent from every learner-facing response, skip requires 2 of 3.
+
+## Content Studio (cross-cutting, built in Phases 1 and 2)
+
+See `SPEC.md`, "Content Studio". Phase 1 builds the lean review queue and the reviewer role; Phase 2 builds the generation adapters and pre-checks.
+
+- **Phase 1:** a `reviewer` role that can rate and comment but never publish and sees no child data. Review queue under `/studio/curriculum/review` showing the card exactly as a child sees it, with audio, five rubric checks, approve / request changes / reject, comments, and version history. Editing an approved item returns it to review. A "reported questions" list fed by the in-app report button.
+- **Phase 2:** `api/app/pipeline/adapters/` with one interface each for text, image (fixed style reference) and TTS (Indian-English voice), selectable by config. Pre-checks run before items enter the queue: recompute maths answers, reading-level check, dedupe against the private reference set, second-model critique that must find exactly one correct answer. Failing items are logged and never queued.
+- Do not build a separate admin app. Reuse the existing Studio area and admin guard.
+- Tests: reviewer cannot publish, reviewer endpoints expose no child data, edit-after-approve returns to review, failed pre-checks never reach the queue.
+
 ## How to run this with Claude Code
 
 Start each phase with: "Read docs/pilot/PILOT-BRIEFS.md and ui/CLAUDE.md. Do Phase N only. Make a plan first, list any questions, then implement on a branch."
