@@ -109,6 +109,7 @@ Restyle `features/vision/vision.component.ts` into the parent landing page, usin
 - A CLI under `api/app/pipeline/` (not served by the API): `ingest` (private reference intake: OCR of local scans into a local-only folder that is gitignored; extract concepts and question patterns into proposed concept-map entries for human approval), `generate`, `dedupe`, `export-review`.
 - `generate` prompts only from the concept description, difficulty band and item kind. **Maths items:** numbers and answers computed in code; the model writes wording and context only. **EVS items and audio scripts:** model-written, age-appropriate, Indian context.
 - `dedupe`: embed generated items and the private reference set (kept local); drop items above a similarity threshold; write the score to the item.
+- **Card sessions:** each concept is generated as a card session of 5-7 cards (see `docs/pilot/SPEC.md`, "The card session", and the reference sample `docs/pilot/samples/place-value-session.html`). Per card produce: title, one or two plain sentences, a visual brief plus the visual itself in one fixed house style (original illustrations only, never textbook art), and an audio script. The audio-script prompt must enforce "never restate the card; refer to it and go further (why, example, or a question to think about)". Also produce the recap (3-4 lines), one "remember" line, and 4-5 check questions with a hint and a source card each. A card counts as `asset` kind `card` with ordered children; the session is one concept.
 - Output lands in `item`/`asset` as `draft`. Text-to-speech runs only from reviewed scripts and stores audio in the existing Supabase storage bucket (reuse `upload_topic_audio.py` patterns).
 - Add `.gitignore` entries for the reference folder; add a test that fails if any file under the reference path is tracked.
 - Tests: answer computation correctness for maths templates, dedupe threshold behavior, no reference text in assembled prompts.
@@ -119,7 +120,7 @@ Restyle `features/vision/vision.component.ts` into the parent landing page, usin
 
 **Goal:** the Learn door for Ramanujan and Einstein using live content.
 
-- Learner flow: chapter trail -> concept -> question-first walkthrough (ask, let the child answer or say "not sure", then reveal a short explanation or visual) -> apply-items.
+- Learner flow: chapter trail -> concept -> **card session** (5-7 cards, each with one visual, short text and an audio button; the audio ends in a question to think about) -> recap with one "remember" line -> quick check (4-5 questions; a wrong answer shows a hint and a peek at the source card, never a score) -> apply-items. Follow `docs/pilot/samples/place-value-session.html` for the structure and tone. Cards are question-aware: the child can say "not sure" at any point and the relevant card reopens.
 - Mastery per concept against the child's own baseline, reusing the logic in `brother_service.py` (median of first N attempts as baseline, mastery at a fraction of baseline with an accuracy floor). Add retention/demotion for Brothers here since it shares the logic. Demotion never re-locks anything already unlocked.
 - Replace `HomeService.getContinue()`'s stub source with real concept progress.
 - Turn on the Einstein room and nav entry (remove its `pilotMode` hide) once its Learn door has live content.
