@@ -1,0 +1,380 @@
+<title>Place Value Session</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* Layout concept: one card at a time on a calm ground, a trail of dots on top, one clear action at the bottom. */
+:root{
+  --bg:#EDF1F5; --card:#FFFFFF; --ink:#16213B; --muted:#56627A; --line:#D5DCE6; --soft:#E3E8EF;
+  --teal:#14746F; --teal-tint:#DDF1EE; --on-teal:#FFFFFF; --amber:#F5C26B; --amber-text:#16213B;
+  --h1:#CFE8E5; --h2:#E1EBF9; --h3:#F0E3F3; --h4:#FBEBD0; --stroke:#16213B; --warn:#8A4B00; --warn-tint:#FBEBD0;
+  --display:'Bricolage Grotesque', 'Trebuchet MS', sans-serif; --body:'DM Sans', system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0F1626; --card:#18223A; --ink:#E8EDF6; --muted:#A5B0C6; --line:#2B3858; --soft:#24304F;
+    --teal:#4FC4BC; --teal-tint:#1C3A3E; --on-teal:#0F1626; --amber:#F5C26B; --amber-text:#16213B;
+    --h1:#1F4A4C; --h2:#223A66; --h3:#4A2C54; --h4:#5A4018; --stroke:#E8EDF6; --warn:#F5C26B; --warn-tint:#3A2C12;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0F1626; --card:#18223A; --ink:#E8EDF6; --muted:#A5B0C6; --line:#2B3858; --soft:#24304F;
+  --teal:#4FC4BC; --teal-tint:#1C3A3E; --on-teal:#0F1626; --amber:#F5C26B; --amber-text:#16213B;
+  --h1:#1F4A4C; --h2:#223A66; --h3:#4A2C54; --h4:#5A4018; --stroke:#E8EDF6; --warn:#F5C26B; --warn-tint:#3A2C12;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.5;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:20px 48px}
+.wrap{max-width:600px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.brand{font-family:var(--display);font-weight:700;font-size:19px;letter-spacing:-.3px}
+.trail{display:flex;gap:7px;align-items:center}
+.dot{width:12px;height:12px;border-radius:999px;border:2px dashed var(--muted);background:transparent}
+.dot.done{background:var(--teal);border:2px solid var(--teal)}
+.dot.now{background:var(--card);border:3px solid var(--teal);box-shadow:0 0 0 4px var(--teal-tint)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:24px;padding:24px 22px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.eyebrow{font-size:13px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--teal)}
+h1,h2{font-family:var(--display);font-weight:700;letter-spacing:-.6px;line-height:1.1;margin:0;text-wrap:balance}
+h1{font-size:36px}
+h2{font-size:28px}
+p{margin:0}
+.muted{color:var(--muted)}
+.big{font-size:20px;line-height:1.45}
+.art{background:var(--teal-tint);border-radius:18px;padding:14px 10px;display:flex;flex-direction:column;align-items:center;gap:10px;overflow:hidden}
+.art svg{width:100%;max-width:420px;height:auto;display:block}
+svg text{font-family:var(--display);fill:var(--ink)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+button,.btn{font:inherit;font-weight:700;min-height:48px;padding:12px 22px;border-radius:14px;border:2px solid transparent;cursor:pointer}
+.primary{background:var(--teal);color:var(--on-teal)}
+.ghost{background:var(--card);color:var(--ink);border-color:var(--line);font-weight:500}
+.audio{background:var(--card);color:var(--ink);border-color:var(--teal);display:inline-flex;align-items:center;gap:8px}
+button:focus-visible,textarea:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
+button[disabled]{opacity:.5;cursor:default}
+details{border:1px dashed var(--line);border-radius:14px;padding:10px 14px;color:var(--muted);font-size:15px}
+summary{cursor:pointer;font-weight:500}
+details p{margin-top:8px;color:var(--ink)}
+.pieces{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center}
+.chip{background:var(--card);border:2px solid var(--stroke);border-radius:14px;padding:8px 14px;font-family:var(--display);font-weight:700;font-size:24px}
+.plus{font-family:var(--display);font-weight:700;font-size:24px;color:var(--muted)}
+.tiles{display:flex;gap:10px}
+.tile{width:54px;height:62px;border-radius:12px;background:var(--amber);color:var(--amber-text);display:flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:700;font-size:32px;border:2px solid var(--stroke)}
+.opts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.opt{background:var(--card);color:var(--ink);border:2px solid var(--line);text-align:center;font-family:var(--display);font-size:22px}
+.opt.right{border-color:var(--teal);background:var(--teal-tint)}
+.opt.wrong{border-color:var(--amber)}
+.note{border-radius:14px;padding:12px 14px;background:var(--teal-tint)}
+.note.try{background:var(--warn-tint);color:var(--ink)}
+textarea,input[type=text]{font:inherit;width:100%;border:2px solid var(--line);border-radius:14px;padding:12px 14px;background:var(--card);color:var(--ink);min-height:48px}
+textarea{min-height:150px;resize:vertical}
+label{font-weight:500;display:block;margin-bottom:6px}
+.pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+ul.recap{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:8px}
+.take{background:var(--amber);color:var(--amber-text);border-radius:18px;padding:16px 18px;font-family:var(--display);font-weight:700;font-size:22px;line-height:1.25}
+.fine{font-size:14px;color:var(--muted)}
+fieldset{border:0;padding:0;margin:0 0 12px}
+legend{font-weight:500;padding:0;margin-bottom:6px}
+.radios{display:flex;gap:8px;flex-wrap:wrap}
+.radios label{display:inline-flex;align-items:center;gap:8px;margin:0;border:2px solid var(--line);border-radius:12px;padding:8px 14px;font-weight:400}
+.show{white-space:pre-wrap;background:var(--soft);border-radius:14px;padding:12px 14px}
+@media (prefers-reduced-motion: no-preference){ .card{animation:rise .25s ease-out} }
+@keyframes rise{from{opacity:.0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media (max-width:420px){ h1{font-size:30px} h2{font-size:25px} .opts{grid-template-columns:1fr 1fr} }
+</style>
+
+<div class="wrap">
+  <div class="top">
+    <div class="brand">thinkingify</div>
+    <div class="trail" id="trail" role="img" aria-label="Progress"></div>
+  </div>
+  <div id="app"></div>
+  <p class="fine" id="foot">This is a test lesson. The audio uses your device's voice; the real app will use a proper recording and a writing guide that asks questions about your own words.</p>
+</div>
+
+<script>
+(function(){
+  // ---------- content (original text, written from the idea, not from any textbook) ----------
+  var HOUSE_NAMES = ['Thousands','Hundreds','Tens','Ones'];
+
+  function street(digits, o){
+    o = o || {};
+    var hs = [84,74,64,54], w = 66, gap = 12, x0 = 10, base = 150, out = '';
+    var fills = ['var(--h1)','var(--h2)','var(--h3)','var(--h4)'];
+    for (var i=0;i<4;i++){
+      var x = x0 + i*(w+gap), h = hs[i], top = base - h, d = digits[i];
+      var sleepy = (d === '0' && o.sleepZero);
+      var hi = (o.hi === i);
+      out += '<polygon points="'+(x-4)+','+top+' '+(x+w/2)+','+(top-22)+' '+(x+w+4)+','+top+'" fill="'+fills[i]+'" stroke="var(--stroke)" stroke-width="2.5" stroke-linejoin="round"/>';
+      out += '<rect x="'+x+'" y="'+top+'" width="'+w+'" height="'+h+'" rx="6" fill="'+fills[i]+'" stroke="var(--stroke)" stroke-width="2.5"/>';
+      if (hi) out += '<rect x="'+(x-6)+'" y="'+(top-28)+'" width="'+(w+12)+'" height="'+(h+34)+'" rx="12" fill="none" stroke="#F5C26B" stroke-width="5" stroke-dasharray="2 8" stroke-linecap="round"/>';
+      if (sleepy){
+        out += '<path d="M'+(x+16)+' '+(top+14)+' q6 5 12 0 M'+(x+w-28)+' '+(top+14)+' q6 5 12 0" stroke="var(--stroke)" stroke-width="2.5" fill="none" stroke-linecap="round"/>';
+        out += '<text x="'+(x+w-14)+'" y="'+(top+6)+'" font-size="13" font-weight="700">z</text>';
+      } else {
+        out += '<circle cx="'+(x+22)+'" cy="'+(top+14)+'" r="3.4" fill="var(--stroke)"/><circle cx="'+(x+w-22)+'" cy="'+(top+14)+'" r="3.4" fill="var(--stroke)"/>';
+      }
+      out += '<text x="'+(x+w/2)+'" y="'+(base-9)+'" font-size="30" font-weight="700" text-anchor="middle" opacity="'+(sleepy?.55:1)+'">'+d+'</text>';
+      if (o.labels !== false) out += '<text x="'+(x+w/2)+'" y="170" font-size="11.5" font-weight="600" text-anchor="middle" style="fill:var(--muted)">'+HOUSE_NAMES[i]+'</text>';
+    }
+    var vh = (o.labels !== false) ? 178 : 158;
+    return '<svg viewBox="0 0 320 '+vh+'" role="img" aria-label="'+(o.alt||'Four houses side by side')+'">'+out+'</svg>';
+  }
+
+  function threes(){
+    var cs = [{r:14,t:'3',c:'ones'},{r:22,t:'30',c:'tens'},{r:32,t:'300',c:'hundreds'},{r:46,t:'3,000',c:'thousands'}];
+    var xs = [38,102,186,278], fills=['var(--h4)','var(--h3)','var(--h2)','var(--h1)'], out='';
+    cs.forEach(function(c,i){
+      var cy = 124 - c.r;
+      out += '<circle cx="'+xs[i]+'" cy="'+cy+'" r="'+c.r+'" fill="'+fills[i]+'" stroke="var(--stroke)" stroke-width="2.5"/>';
+      out += '<text x="'+xs[i]+'" y="'+(cy+6)+'" font-size="'+(c.r>20?19:15)+'" font-weight="700" text-anchor="middle">'+c.t+'</text>';
+      out += '<text x="'+xs[i]+'" y="146" font-size="11.5" font-weight="600" text-anchor="middle" style="fill:var(--muted)">3 '+c.c+'</text>';
+    });
+    return '<svg viewBox="0 0 330 156" role="img" aria-label="Four circles, each holding a 3, growing from 3 ones to 3 thousands">'+out+'</svg>';
+  }
+
+  var CARDS = [
+    { title:'Same digit, different worth',
+      text:'In 3,333 every digit is a 3. But the four 3s are not worth the same.',
+      art:function(){ return threes(); },
+      say:'Look at the four threes. The one on the far right is just three single things. The next one is three tens, so thirty. Then three hundreds. And the biggest is three thousands. A digit only tells you how many. Where it stands tells you what it is counting. Before you tap next, can you say how much the far left three is worth?' },
+    { title:'Every digit lives in a house',
+      text:'In 4,356, the 4 lives in Thousands, the 3 in Hundreds, the 5 in Tens and the 6 in Ones.',
+      art:function(){ return street(['4','3','5','6'],{alt:'Four houses named Thousands, Hundreds, Tens and Ones holding the digits 4, 3, 5 and 6'}); },
+      say:'Think of a street with four houses. The houses on the left are the biggest and the richest. Each house can hold just one digit, from zero to nine. What if a house gets ten? It has to send one up to the next house on the left. That is why ten ones turn into one ten. Can you tell me what the 5 is worth?' },
+    { title:'Break a number apart',
+      text:'4,356 is 4,000 and 300 and 50 and 6. This is called expanded form.',
+      art:function(){ return '<div class="pieces"><span class="chip">4,000</span><span class="plus">+</span><span class="chip">300</span><span class="plus">+</span><span class="chip">50</span><span class="plus">+</span><span class="chip">6</span></div>'; },
+      say:'Notice the zeros at the end of four thousand, three hundred and fifty. They show how far each digit has moved away from the ones house. Now try one in your head. Take 7,204. You can find the seven thousand, the two hundred and the four. Which piece is missing? What do you think we do about it?' },
+    { title:'Zero keeps the house open',
+      text:'In 4,056 nobody lives in the Hundreds house, but the house is still there. The zero holds its place.',
+      art:function(){ return street(['4','0','5','6'],{sleepZero:true,alt:'Four houses with the digits 4, 0, 5 and 6; the Hundreds house is asleep'}) + '<div class="pieces"><span class="chip">4,056</span><span class="plus">is not</span><span class="chip">456</span></div>'; },
+      say:'If we forgot the zero, the four would slide down into the hundreds house and the whole number would shrink to four hundred and fifty six. That is a much smaller number. The zero is saying: nobody lives here, but please do not move the furniture.' },
+    { title:'Compare from the biggest house',
+      text:'To find the bigger number, start at the Thousands house and move right. The first house that is different decides.',
+      art:function(){ return '<div style="width:100%;max-width:420px">'+street(['3','4','5','6'],{hi:0,labels:false,alt:'The number 3,456 as four houses'})+'<p class="big" style="text-align:center;font-family:var(--display);font-weight:700">3,456</p></div><div style="width:100%;max-width:420px">'+street(['4','3','5','6'],{hi:0,labels:false,alt:'The number 4,356 as four houses'})+'<p class="big" style="text-align:center;font-family:var(--display);font-weight:700">4,356</p></div>'; },
+      say:'Start at the thousands house. Three against four. We already know! We do not need to look any further. Only when the thousands match do we move on to the hundreds, and then the tens. Which number is bigger here? And how did you decide so quickly?' },
+    { title:'Build the biggest number',
+      text:'To make the biggest number from four digits, put the biggest digit in the most valuable house.',
+      art:function(){ return '<div class="tiles" aria-label="Digit tiles 7, 2, 9 and 0"><div class="tile">7</div><div class="tile">2</div><div class="tile">9</div><div class="tile">0</div></div><p class="fine" style="text-align:center">Which house is the most valuable? Where should the 9 go?</p>'; },
+      say:'Which house is the most valuable? The thousands house. So the biggest digit goes there. Now try the smallest number you can make. The zero would love the thousands house, but then the number would only have three digits. So which digit goes there instead? Work it out before you move on.' }
+  ];
+
+  var QS = [
+    { q:'In 5,248, what is the 2 worth?', o:['2','20','200','2,000'], a:2, card:1, hint:'Which house does the 2 live in? Count from the right: ones, tens, hundreds.' },
+    { q:'Which number is 6,000 + 40 + 7?', o:['6,407','6,047','6,470','647'], a:1, card:3, hint:'There are no hundreds here. What keeps the Hundreds house open?' },
+    { q:'In 3,092, what does the zero do?', o:['Nothing, we can remove it','It makes the number bigger','It holds the Hundreds house open so 3, 9 and 2 stay in the right houses','It means the whole number is zero'], a:2, card:3, hint:'Think about what would happen to the 9 and the 2 if the zero was forgotten.', long:true },
+    { q:'Which is bigger?', o:['5,309','5,390'], a:1, card:4, hint:'Start at the Thousands house. Same? Move to Hundreds. Still the same? Look at Tens.' }
+  ];
+
+  var STEPS = ['intro'].concat(CARDS.map(function(c,i){return 'c'+i;}), ['recap','check','write','crack','done']);
+  var DOTS = CARDS.length + 3; // 6 cards + check + write + crack
+
+  // ---------- state ----------
+  var S = { step:0, qi:0, picked:null, solved:false, tries:0, writing:'', knew:'', big:'', small:'', crackState:'', notes:{level:'',audio:'',minutes:'',free:''}, speaking:false, copyText:'' };
+  try { var w0 = localStorage.getItem('ps_writing'); if (w0) S.writing = w0; var k0 = localStorage.getItem('ps_knew'); if (k0) S.knew = k0; } catch(e){}
+
+  var app = document.getElementById('app'), trail = document.getElementById('trail');
+
+  function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+  // ---------- audio (stand-in voice) ----------
+  function stopSpeech(){ try { if ('speechSynthesis' in window) window.speechSynthesis.cancel(); } catch(e){} S.speaking = false; }
+  function speak(text){
+    try {
+      if (!('speechSynthesis' in window)) return false;
+      window.speechSynthesis.cancel();
+      var u = new SpeechSynthesisUtterance(text), vs = window.speechSynthesis.getVoices() || [], pick = null;
+      for (var i=0;i<vs.length;i++){ if (/en[-_]IN/i.test(vs[i].lang)) { pick = vs[i]; break; } }
+      if (!pick) for (var j=0;j<vs.length;j++){ if (/^en/i.test(vs[j].lang)) { pick = vs[j]; break; } }
+      if (pick) u.voice = pick;
+      u.rate = 0.92; u.pitch = 1.02;
+      u.onend = u.onerror = function(){ S.speaking = false; var b = document.getElementById('listen'); if (b) b.innerHTML = listenLabel(); };
+      window.speechSynthesis.speak(u); S.speaking = true; return true;
+    } catch(e){ return false; }
+  }
+  function listenLabel(){ return S.speaking ? '<span aria-hidden="true">&#9632;</span> Stop' : '<span aria-hidden="true">&#9654;</span> Listen'; }
+
+  // ---------- rendering ----------
+  function renderTrail(){
+    var cur = STEPS[S.step], n = 0, html = '';
+    // how many dots are done
+    var idx = S.step - 1; // intro = 0 => idx -1
+    for (var i=0;i<DOTS;i++){
+      var cls = 'dot';
+      var stepIndexForDot = i + 1; // c0.. => 1..6, check => 8, write 9, crack 10 (recap at 7 not a dot)
+      var map = i < CARDS.length ? i + 1 : (i - CARDS.length) + CARDS.length + 2;
+      if (S.step > map || cur === 'done') cls += ' done';
+      else if (S.step === map || (cur === 'recap' && map === CARDS.length+2)) cls += ' now';
+      html += '<span class="'+cls+'"></span>';
+    }
+    trail.innerHTML = html;
+    trail.setAttribute('aria-label', cur === 'intro' ? 'Not started' : (cur === 'done' ? 'Session finished' : 'Progress through the session'));
+  }
+
+  function nav(back, nextLabel, nextAct){
+    return '<div class="row">'+(back?'<button class="ghost" data-act="back">Back</button>':'')+'<button class="primary" data-act="'+nextAct+'">'+nextLabel+'</button></div>';
+  }
+
+  function viewIntro(){
+    return '<section class="card"><div class="eyebrow">Maths · Class 4 · Big Numbers</div><h1>What is a digit really worth?</h1>'+
+      '<p class="big">Six short cards, a few questions, then you write it in your own words and try one puzzle.</p>'+
+      '<p class="muted">About 15 minutes. No timer, no score. It is fine to say "not sure".</p>'+
+      '<details><summary>For the grown-up</summary><p>Let your child tap Listen on each card. Sit nearby and notice what they replay, what they say aloud, and where they hesitate. You will find a short notes form at the end.</p></details>'+
+      '<div class="row"><button class="primary" data-act="next">Start</button></div></section>';
+  }
+
+  function viewCard(i){
+    var c = CARDS[i];
+    return '<section class="card"><div class="eyebrow">Card '+(i+1)+' of '+CARDS.length+'</div><h2>'+esc(c.title)+'</h2>'+
+      '<div class="art">'+c.art()+'</div>'+
+      '<p class="big">'+esc(c.text)+'</p>'+
+      '<div class="row"><button class="audio" id="listen" data-act="listen" data-i="'+i+'">'+listenLabel()+'</button></div>'+
+      '<details><summary>Audio script (for grown-ups)</summary><p>'+esc(c.say)+'</p></details>'+
+      nav(true, 'Next', 'next')+'</section>';
+  }
+
+  function viewRecap(){
+    return '<section class="card"><div class="eyebrow">Recap</div><h2>What we found out</h2><ul class="recap">'+
+      '<li>A digit\'s worth depends on its house: ones, tens, hundreds, thousands.</li>'+
+      '<li>We can break a number apart: 4,356 is 4,000 + 300 + 50 + 6.</li>'+
+      '<li>A zero keeps a house open so the other digits stay where they belong.</li>'+
+      '<li>To compare, start at the biggest house and move right.</li></ul>'+
+      '<div class="take">Remember: a digit\'s worth depends on the house it lives in.</div>'+nav(true,'Quick check','next')+'</section>';
+  }
+
+  function viewCheck(){
+    var q = QS[S.qi], opts = '';
+    q.o.forEach(function(t,i){
+      var cls = 'opt';
+      if (S.picked === i) cls += (i === q.a ? ' right' : ' wrong');
+      opts += '<button class="'+cls+'" data-act="pick" data-i="'+i+'" '+(S.solved?'disabled':'')+' style="'+(q.long?'font-family:var(--body);font-size:16px;font-weight:500;text-align:left':'')+'">'+esc(t)+'</button>';
+    });
+    var fb = '';
+    if (S.picked !== null && !S.solved){
+      fb = '<div class="note try"><strong>Not yet.</strong> '+esc(q.hint)+'</div>'+
+        '<details><summary>Peek at card '+(q.card+1)+': '+esc(CARDS[q.card].title)+'</summary><p>'+esc(CARDS[q.card].text)+'</p></details>';
+    }
+    if (S.solved){ fb = '<div class="note"><strong>Yes.</strong> '+esc(q.o[q.a])+' is right.</div>'; }
+    var last = S.qi === QS.length - 1;
+    return '<section class="card"><div class="eyebrow">Quick check · '+(S.qi+1)+' of '+QS.length+'</div><h2>'+esc(q.q)+'</h2>'+
+      '<div class="opts" style="'+(q.long?'grid-template-columns:1fr':'')+'">'+opts+'</div>'+fb+
+      (S.solved ? '<div class="row"><button class="primary" data-act="qnext">'+(last?'On to writing':'Next question')+'</button></div>' : '')+'</section>';
+  }
+
+  function viewWrite(){
+    return '<section class="card"><div class="eyebrow">Write it down</div><h2>Explain it to a friend</h2>'+
+      '<p class="big">Your friend says: "In 4,356, the 3 is just 3." Write back and explain what the 3 is really worth, and how you know. Use your own words.</p>'+
+      '<div><label for="writing">Your explanation</label><textarea id="writing" placeholder="Write here. Messy is fine.">'+esc(S.writing)+'</textarea></div>'+
+      '<details><summary>Stuck? Ask yourself a question</summary><p>Which house does the 3 live in? &nbsp;·&nbsp; What would change if it moved one house to the right? &nbsp;·&nbsp; Can you show it with a different number?</p></details>'+
+      '<p class="fine">In the real app, a guide reads what you wrote and asks questions about it. It never writes it for you.</p>'+
+      nav(true,'Done writing','next')+'</section>';
+  }
+
+  function viewCrack(){
+    var msg = '';
+    if (S.crackState === 'ok') msg = '<div class="note"><strong>Both right.</strong> Biggest 7,530 and smallest 3,057.</div>';
+    else if (S.crackState === 'n1') msg = '<div class="note try"><strong>Keep going.</strong> Which house is the most valuable? Which tile should go there for the biggest number?</div>';
+    else if (S.crackState === 'n2') msg = '<div class="note try"><strong>One more nudge.</strong> For the smallest number, the 0 cannot go in the Thousands house. Which is the smallest tile that can?</div>';
+    else if (S.crackState === 'show') msg = '<div class="note">Here is how it works: biggest, put the tiles in order from biggest to smallest, 7, 5, 3, 0 &#8594; <strong>7,530</strong>. Smallest, the smallest tile that is not 0 goes first, then the rest in order: 3, 0, 5, 7 &#8594; <strong>3,057</strong>.</div>';
+    var done = S.crackState === 'ok' || S.crackState === 'show';
+    return '<section class="card"><div class="eyebrow">Crack it · one puzzle</div><h2>Tiles in the right houses</h2>'+
+      '<div class="art"><div class="tiles" aria-label="Digit tiles 3, 0, 7 and 5"><div class="tile">3</div><div class="tile">0</div><div class="tile">7</div><div class="tile">5</div></div></div>'+
+      '<p class="big">Use every tile once. Make the biggest 4-digit number and the smallest 4-digit number.</p>'+
+      '<div class="pair"><div><label for="big">Biggest</label><input type="text" id="big" inputmode="numeric" autocomplete="off" value="'+esc(S.big)+'"></div><div><label for="small">Smallest</label><input type="text" id="small" inputmode="numeric" autocomplete="off" value="'+esc(S.small)+'"></div></div>'+
+      msg+
+      (done ? '<div><label for="knew">How I knew</label><textarea id="knew" style="min-height:100px" placeholder="One or two lines about how you worked it out.">'+esc(S.knew)+'</textarea></div>'+nav(false,'Finish','next')
+            : '<div class="row"><button class="primary" data-act="crackcheck">Check</button><button class="ghost" data-act="cracknudge">Give me a nudge</button><button class="ghost" data-act="crackshow">Show me how</button></div>')+
+      '</section>';
+  }
+
+  function radios(name, vals){
+    return '<div class="radios">'+vals.map(function(v){ return '<label><input type="radio" name="'+name+'" value="'+esc(v)+'" '+(S.notes[name]===v?'checked':'')+'> '+esc(v)+'</label>'; }).join('')+'</div>';
+  }
+
+  function viewDone(){
+    return '<section class="card"><div class="eyebrow">All done</div><h2>You finished the session</h2>'+
+      '<p class="big">That is all six cards, the check, your writing and a puzzle. No score. What matters is what you wrote.</p>'+
+      '<div><div class="eyebrow" style="color:var(--muted)">What you wrote</div><div class="show">'+(S.writing?esc(S.writing):'(nothing written)')+'</div></div>'+
+      '<div><div class="eyebrow" style="color:var(--muted)">How you knew</div><div class="show">'+(S.knew?esc(S.knew):'(nothing written)')+'</div></div></section>'+
+      '<section class="card"><div class="eyebrow">For the grown-up</div><h2>Quick notes on how it went</h2>'+
+      '<fieldset><legend>How did the level feel?</legend>'+radios('level',['Too easy','Just right','Too hard'])+'</fieldset>'+
+      '<fieldset><legend>Did the audio help?</legend>'+radios('audio',['Yes','A bit','Not used'])+'</fieldset>'+
+      '<div><label for="minutes">About how many minutes did it take?</label><input type="text" id="minutes" inputmode="numeric" value="'+esc(S.notes.minutes)+'"></div><br>'+
+      '<div><label for="free">Anything else? Which card was unclear, what did they say aloud?</label><textarea id="free" style="min-height:110px">'+esc(S.notes.free)+'</textarea></div>'+
+      '<div class="row"><button class="primary" data-act="copyall">Copy everything</button><button class="ghost" data-act="restart">Start again</button></div>'+
+      '<div id="copybox"></div></section>';
+  }
+
+  function render(){
+    var st = STEPS[S.step], html = '';
+    if (st === 'intro') html = viewIntro();
+    else if (st.charAt(0) === 'c' && st !== 'check' && st !== 'crack') html = viewCard(parseInt(st.slice(1),10));
+    else if (st === 'recap') html = viewRecap();
+    else if (st === 'check') html = viewCheck();
+    else if (st === 'write') html = viewWrite();
+    else if (st === 'crack') html = viewCrack();
+    else html = viewDone();
+    app.innerHTML = html;
+    renderTrail();
+  }
+
+  function go(n){ stopSpeech(); S.step = Math.max(0, Math.min(STEPS.length-1, n)); if (STEPS[S.step] === 'check'){ S.qi = 0; S.picked = null; S.solved = false; } render(); window.scrollTo({top:0}); }
+
+  function allText(){
+    var n = S.notes;
+    return 'PLACE VALUE SESSION\n\nWhat the child wrote:\n'+(S.writing||'(nothing)')+'\n\nHow I knew:\n'+(S.knew||'(nothing)')+
+      '\n\nGrown-up notes\nLevel: '+(n.level||'-')+'\nAudio helped: '+(n.audio||'-')+'\nMinutes: '+(n.minutes||'-')+'\nOther: '+(n.free||'-');
+  }
+
+  // ---------- events ----------
+  document.addEventListener('click', function(e){
+    var b = e.target.closest('[data-act]'); if (!b) return;
+    var a = b.getAttribute('data-act');
+    if (a === 'next') go(S.step+1);
+    else if (a === 'back') go(S.step-1);
+    else if (a === 'listen'){
+      if (S.speaking){ stopSpeech(); b.innerHTML = listenLabel(); return; }
+      var ok = speak(CARDS[parseInt(b.getAttribute('data-i'),10)].say);
+      if (!ok){ b.insertAdjacentHTML('afterend','<span class="fine">Audio is not available on this device. Open the script below to read it aloud.</span>'); b.disabled = true; }
+      else b.innerHTML = listenLabel();
+    }
+    else if (a === 'pick'){
+      var i = parseInt(b.getAttribute('data-i'),10), q = QS[S.qi];
+      S.picked = i; if (i === q.a) S.solved = true; render();
+    }
+    else if (a === 'qnext'){
+      if (S.qi < QS.length-1){ S.qi++; S.picked = null; S.solved = false; render(); } else go(S.step+1);
+    }
+    else if (a === 'crackcheck'){
+      S.tries++;
+      var bg = S.big.replace(/[^0-9]/g,''), sm = S.small.replace(/[^0-9]/g,'');
+      if (bg === '7530' && sm === '3057') S.crackState = 'ok';
+      else S.crackState = (S.tries % 2 === 1) ? 'n1' : 'n2';
+      render();
+    }
+    else if (a === 'cracknudge'){ S.crackState = (S.crackState === 'n1') ? 'n2' : 'n1'; render(); }
+    else if (a === 'crackshow'){ S.crackState = 'show'; render(); }
+    else if (a === 'copyall'){
+      var t = allText(), box = document.getElementById('copybox');
+      var fallback = function(){ box.innerHTML = '<p class="fine">Select and copy this text:</p><textarea id="copytext" readonly style="min-height:200px">'+esc(t)+'</textarea>'; var ta = document.getElementById('copytext'); if (ta){ ta.focus(); ta.select(); } };
+      try { navigator.clipboard.writeText(t).then(function(){ box.innerHTML = '<p class="note">Copied. Paste it into your chat with Claude.</p>'; }, fallback); } catch(err){ fallback(); }
+    }
+    else if (a === 'restart'){ S.qi = 0; S.picked = null; S.solved = false; S.tries = 0; S.crackState = ''; S.big = ''; S.small = ''; go(0); }
+  });
+
+  document.addEventListener('input', function(e){
+    var id = e.target.id;
+    if (id === 'writing'){ S.writing = e.target.value; try { localStorage.setItem('ps_writing', S.writing); } catch(x){} }
+    else if (id === 'knew'){ S.knew = e.target.value; try { localStorage.setItem('ps_knew', S.knew); } catch(x){} }
+    else if (id === 'big') S.big = e.target.value;
+    else if (id === 'small') S.small = e.target.value;
+    else if (id === 'minutes') S.notes.minutes = e.target.value;
+    else if (id === 'free') S.notes.free = e.target.value;
+    else if (e.target.name === 'level' || e.target.name === 'audio') S.notes[e.target.name] = e.target.value;
+  });
+
+  render();
+})();
+</script>

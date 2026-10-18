@@ -59,11 +59,23 @@ Content is generated once, offline, reviewed by a person, and only then served. 
 
 Audio is produced by text-to-speech from the reviewed script, so a script change regenerates the audio.
 
+For card sessions the pipeline also produces, per card, the title, the one-or-two-sentence text, the visual (generated or drawn in the house style, then reviewed) and the audio script written under the rule "never restate the card". A person reviews all four before the card goes live.
+
 ## The three flows
 
 Each concept has the same shape, so a child always knows what to do next. Sessions target about 15 minutes.
 
 **Learn** is question-first. The guide asks, the child answers or says "not sure", and only then does a short explanation or visual appear. Maths concepts that are procedures (carrying, borrowing) always pair the explanation with a visual or manipulative.
+
+**The card session** is the content unit of Learn: one concept becomes 5-7 cards (borrowing the lesson format from Deepstash, without its collect-and-browse habit). Rules:
+
+- Each card holds one idea: a short title, one or two plain sentences, and one cartoon visual in a single consistent style.
+- The audio never repeats the card. It refers to the card and goes further: the why, an example, or a question to think about before tapping next.
+- A session ends with a recap of 3-4 lines and one "remember" line, then a quick check of 4-5 questions. A wrong answer shows a hint and a peek at the relevant card; it never shows a score.
+- After the check come Write it down and, where the concept has one, a Crack it puzzle.
+- Card visuals are original illustrations. Textbook illustrations are never reused.
+
+A hand-made sample session ("Place value", 6 cards) is in `docs/pilot/samples/place-value-session.html` and is the reference for the format.
 
 **Write it down** reuses the Rowling engine:
 
