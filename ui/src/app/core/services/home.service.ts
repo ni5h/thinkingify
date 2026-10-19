@@ -120,6 +120,34 @@ export function selectContinue(
   };
 }
 
+/**
+ * Phase 3 source: the child's real concept progress. Picks the first available
+ * concept that isn't solid yet (the next thing to learn), with the trail showing
+ * how many concepts in the chapter are solid. Returns null when there's no live
+ * chapter content, so the caller falls back to selectContinue.
+ */
+export function selectConceptContinue(
+  chapterTitle: string,
+  concepts: { id: string; title: string; order_index: number }[],
+  progress: { concept_id: string; state: string; available: boolean }[],
+): ContinueCard | null {
+  if (concepts.length === 0) return null;
+  const byId = new Map(progress.map((p) => [p.concept_id, p]));
+  const solid = progress.filter((p) => p.state === 'solid').length;
+  const ordered = [...concepts].sort((a, b) => a.order_index - b.order_index);
+  const next =
+    ordered.find((c) => (byId.get(c.id)?.available ?? true) && byId.get(c.id)?.state !== 'solid') ??
+    ordered.find((c) => byId.get(c.id)?.available ?? true);
+  if (!next) return null;
+  return {
+    room: 'ramanujan',
+    title: next.title,
+    subtitle: chapterTitle,
+    steps: trail(solid),
+    route: ['/ramanujan/learn', next.id],
+  };
+}
+
 /** The next Kakooma operation to try: least-recently practiced (unattempted first). */
 export function selectCrackIt(kakoomaStats: GameStats[]): CrackItCard {
   const byId = new Map(kakoomaStats.map((s) => [s.game_id, s.last_attempt_at ?? '']));

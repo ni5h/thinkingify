@@ -1,8 +1,9 @@
-import { Component, computed, inject } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { UserProfileService } from '../../core/services/user-profile.service';
-import { HomeService } from '../../core/services/home.service';
+import { HomeService, ContinueCard, selectConceptContinue } from '../../core/services/home.service';
 import { FeatureFlagService } from '../../core/services/feature-flag.service';
+import { LearnService } from '../../core/services/learn.service';
 import { StepState } from '../../core/services/home.service';
 
 interface RoomCard {
@@ -88,14 +89,36 @@ interface RoomCard {
     </div>
   `,
 })
-export default class DashboardComponent {
+export default class DashboardComponent implements OnInit {
   private readonly userProfile = inject(UserProfileService);
   private readonly home = inject(HomeService);
   private readonly flags = inject(FeatureFlagService);
+  private readonly learn = inject(LearnService);
 
   readonly name = computed(() => this.userProfile.me()?.first_name || 'there');
   readonly initial = computed(() => (this.name().charAt(0) || '?').toUpperCase());
-  readonly cont = this.home.continueCard;
+  // Prefer real concept progress (Phase 3) when the chapter has live content;
+  // otherwise fall back to the cross-room "continue where you left off" card.
+  private readonly conceptCont = signal<ContinueCard | null>(null);
+  readonly cont = computed(() => this.conceptCont() ?? this.home.continueCard());
+
+  async ngOnInit(): Promise<void> {
+    try {
+      const subjects = await this.learn.getSubjects();
+      const maths = subjects.find((s) => s.code === 'maths');
+      if (!maths) return;
+      const chapters = await this.learn.getChapters(maths.id);
+      if (chapters.length === 0) return;
+      const chapter = [...chapters].sort((a, b) => a.order_index - b.order_index)[0];
+      const [concepts, progress] = await Promise.all([
+        this.learn.getConcepts(chapter.id),
+        this.learn.getProgress(chapter.id),
+      ]);
+      this.conceptCont.set(selectConceptContinue(chapter.title, concepts, progress));
+    } catch {
+      // No live curriculum yet — keep the fallback card.
+    }
+  }
   readonly crack = this.home.crackIt;
 
   private readonly ALL_ROOMS: RoomCard[] = [
