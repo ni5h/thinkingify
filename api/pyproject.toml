@@ -30,6 +30,15 @@ pytest-asyncio = "^0.24"
 ruff = "^0.6"
 aiosqlite = "^0.20"
 
+# Offline content pipeline (Phase 2). Kept out of the served API image, which
+# installs `--only main` — nothing under app/pipeline is imported at request
+# time. `textstat` scores reading level. Local embeddings use model2vec
+# (torch-free, CPU) but it's lazy-imported only when
+# pipeline_embedding_adapter=local, so it's an optional `pip install model2vec`
+# rather than a hard dependency (the default hash adapter needs nothing).
+[tool.poetry.group.pipeline.dependencies]
+textstat = "^0.7"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
