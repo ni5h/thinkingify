@@ -9,6 +9,8 @@ from app.models.brother import (
 from app.models.companion_message import CompanionMessage, CompanionMessageRole
 from app.models.content import Content, ContentStatus
 from app.models.curriculum import (
+    AnswerEvent,
+    AnswerResult,
     Asset,
     AssetKind,
     BookMap,
@@ -18,6 +20,7 @@ from app.models.curriculum import (
     Item,
     ItemKind,
     Mastery,
+    PracticeSession,
     Skill,
     Subject,
     Writing,
@@ -47,6 +50,8 @@ __all__ = [
     "CompanionMessageRole",
     "Content",
     "ContentStatus",
+    "AnswerEvent",
+    "AnswerResult",
     "Asset",
     "AssetKind",
     "BookMap",
@@ -56,6 +61,7 @@ __all__ = [
     "Item",
     "ItemKind",
     "Mastery",
+    "PracticeSession",
     "Skill",
     "Subject",
     "Writing",

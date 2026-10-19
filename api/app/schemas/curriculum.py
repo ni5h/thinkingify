@@ -122,6 +122,8 @@ class AssetOut(BaseModel):
     kind: AssetKind
     body: str | None
     url: str | None
+    order_index: int
+    data: dict | None
     status: CurriculumStatus
 
 
@@ -155,22 +157,26 @@ class ItemOut(BaseModel):
     kind: ItemKind
     difficulty: int
     body: str
+    options: list[str] | None
     answer_key: str | None
+    hint: str | None
+    source_asset_id: uuid.UUID | None
+    dedupe_score: float | None
     status: CurriculumStatus
     updated_at: datetime
 
 
 class ItemPublicOut(BaseModel):
-    """Learner view — never exposes answer_key (same schema-omission guard as
-    MathProblemOut dropping answer/solution)."""
+    """Learner view — never exposes answer_key OR difficulty (the adaptive level
+    the child must never see). Grading and the staircase run server-side; the
+    hint and source card come back only in the answer response, on a wrong try."""
 
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
     concept_id: uuid.UUID
-    skill_id: uuid.UUID | None
     kind: ItemKind
-    difficulty: int
     body: str
+    options: list[str] | None
 
 
 # --- BookMap ---
@@ -194,3 +200,50 @@ class BookMapOut(BaseModel):
     book: str
     chapter_ref: str
     concept_ids: list[uuid.UUID]
+
+
+# --- Learner practice session (Phase 3) ---
+
+
+class CheckStartIn(BaseModel):
+    # Per-card think-first results, used only for placement. "check" is the
+    # normal run; "challenge" is the 3-item "I already know this" skip test.
+    think_results: list[str] = []  # "right" | "wrong" | "unsure"
+    mode: str = "check"
+
+
+class CheckSessionOut(BaseModel):
+    session_id: uuid.UUID
+    index: int  # 1-based position of `item` in the run
+    total: int
+    item: ItemPublicOut | None
+    done: bool = False
+
+
+class AnswerIn(BaseModel):
+    item_id: uuid.UUID
+    choice: str | None = None
+    unsure: bool = False
+    hint_used: bool = False
+    ms: int | None = None
+
+
+class AnswerOut(BaseModel):
+    # No score, ever. A wrong try returns the hint and the source card to peek.
+    correct: bool
+    unsure: bool
+    reveal_answer: str | None
+    hint: str | None
+    source_asset_id: uuid.UUID | None
+    index: int
+    total: int
+    done: bool
+    next_item: ItemPublicOut | None = None
+    skip_earned: bool | None = None  # challenge mode only
+
+
+class ConceptProgressOut(BaseModel):
+    concept_id: uuid.UUID
+    state: str  # "learning" | "solid" | "needs_look" — never a number
+    available: bool
+    mastered: bool
