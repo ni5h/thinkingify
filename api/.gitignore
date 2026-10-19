@@ -6,3 +6,7 @@ venv/
 .pytest_cache/
 .ruff_cache/
 *.egg-info/
+
+# Private reference set (textbook scans, olympiad banks). Local only — never
+# committed, shown to users, or placed in a model prompt. A test enforces this.
+private_reference/

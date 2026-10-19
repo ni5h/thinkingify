@@ -12,7 +12,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import JSON, DateTime, Enum, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, DateTime, Enum, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -30,6 +30,11 @@ class AssetKind(str, enum.Enum):
     audio = "audio"
     script = "script"
     visual = "visual"
+    # A Learn card: one idea (title + 1–2 sentences + think-first question +
+    # audio script + visual brief), held in `data`; ordered within its concept.
+    card = "card"
+    # The session wrap-up (3–4 recap lines + one "remember" line), in `data`.
+    recap = "recap"
 
 
 class ItemKind(str, enum.Enum):
@@ -92,9 +97,16 @@ class Asset(Base, TimestampMixin):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     concept_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("concepts.id"), nullable=False)
     kind: Mapped[AssetKind] = mapped_column(Enum(AssetKind, name="assetkind", schema="thinkingify"), nullable=False)
-    # script → body; audio/visual → url.
+    # script → body; audio/visual → url. card/recap → structured `data`.
     body: Mapped[str | None] = mapped_column(Text, nullable=True)
     url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    # Ordering within a concept (card sequence). Structured payload for card /
+    # recap kinds (title, text, visual_brief, audio_script, think, recap lines).
+    order_index: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    data: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    # Cosine similarity to the nearest other generated item / private reference,
+    # written by the dedupe pass. Null until deduped.
+    dedupe_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     status: Mapped[CurriculumStatus] = mapped_column(
         Enum(CurriculumStatus, name="curriculumstatus", schema="thinkingify"),
         nullable=False,
@@ -113,6 +125,16 @@ class Item(Base, TimestampMixin):
     difficulty: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     body: Mapped[str] = mapped_column(Text, nullable=False, default="")
     answer_key: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Multiple-choice options for check questions (list of strings); the
+    # correct one is `answer_key`. Null for free-response items.
+    options: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    # One-line nudge shown on a wrong answer (never a score), and the card this
+    # question came from (a "peek at the source card").
+    hint: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source_asset_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("assets.id"), nullable=True
+    )
+    dedupe_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     status: Mapped[CurriculumStatus] = mapped_column(
         Enum(CurriculumStatus, name="curriculumstatus", schema="thinkingify"),
         nullable=False,

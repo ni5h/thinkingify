@@ -109,6 +109,7 @@ Restyle `features/vision/vision.component.ts` into the parent landing page, usin
 - A CLI under `api/app/pipeline/` (not served by the API): `ingest` (private reference intake: OCR of local scans into a local-only folder that is gitignored; extract concepts and question patterns into proposed concept-map entries for human approval), `generate`, `dedupe`, `export-review`.
 - `generate` prompts only from the concept description, difficulty band and item kind. **Maths items:** numbers and answers computed in code; the model writes wording and context only. **EVS items and audio scripts:** model-written, age-appropriate, Indian context.
 - `dedupe`: embed generated items and the private reference set (kept local); drop items above a similarity threshold; write the score to the item.
+- **Card sessions:** each concept is generated as a card session of 5-7 cards (see `docs/pilot/SPEC.md`, "The card session", and the reference sample `docs/pilot/samples/place-value-session.html`). Per card produce: title, one or two plain sentences, a visual brief plus the visual itself in one fixed house style (original illustrations only, never textbook art), and an audio script. The audio-script prompt must enforce "never restate the card; refer to it and go further (why, example, or a question to think about)". Also produce the recap (3-4 lines), one "remember" line, and 4-5 check questions with a hint and a source card each. A card counts as `asset` kind `card` with ordered children; the session is one concept.
 - Output lands in `item`/`asset` as `draft`. Text-to-speech runs only from reviewed scripts and stores audio in the existing Supabase storage bucket (reuse `upload_topic_audio.py` patterns).
 - Add `.gitignore` entries for the reference folder; add a test that fails if any file under the reference path is tracked.
 - Tests: answer computation correctness for maths templates, dedupe threshold behavior, no reference text in assembled prompts.
@@ -119,7 +120,7 @@ Restyle `features/vision/vision.component.ts` into the parent landing page, usin
 
 **Goal:** the Learn door for Ramanujan and Einstein using live content.
 
-- Learner flow: chapter trail -> concept -> question-first walkthrough (ask, let the child answer or say "not sure", then reveal a short explanation or visual) -> apply-items.
+- Learner flow: chapter trail -> concept -> **card session** (5-7 cards, each with one visual, short text and an audio button; the audio ends in a question to think about) -> recap with one "remember" line -> quick check (4-5 questions; a wrong answer shows a hint and a peek at the source card, never a score) -> apply-items. Follow `docs/pilot/samples/place-value-session.html` for the structure and tone. Cards are question-aware: the child can say "not sure" at any point and the relevant card reopens.
 - Mastery per concept against the child's own baseline, reusing the logic in `brother_service.py` (median of first N attempts as baseline, mastery at a fraction of baseline with an accuracy floor). Add retention/demotion for Brothers here since it shares the logic. Demotion never re-locks anything already unlocked.
 - Replace `HomeService.getContinue()`'s stub source with real concept progress.
 - Turn on the Einstein room and nav entry (remove its `pilotMode` hide) once its Learn door has live content.
@@ -168,6 +169,27 @@ Restyle `features/vision/vision.component.ts` into the parent landing page, usin
 - Fallbacks: if the model is down or capped, learners still get reviewed items and audio.
 
 ---
+
+## Adaptive engine (cross-cutting, built in Phase 3)
+
+See `SPEC.md`, "Adaptive engine". Implement in a service the Learn flow calls; the child UI never receives a level.
+
+- Add `difficulty` (1-5) to `item` if not already present, and an `answer_event` log: child, item, level at the time, result (right, wrong, unsure), hint used, ms taken, timestamp. Log every answer from the first day.
+- Placement from the think-first answers on the cards; staircase targeting ~75% correct; up after 2 right in a row, down after 1 "not sure" or 2 wrong in a row; hint used = half credit; "not sure" reopens the relevant card.
+- "I already know this" challenge: 3 hard items, skip the cards if 2 are right.
+- Speed is only ever compared with the child's own baseline (reuse `brother_service.py` logic).
+- Parent override for a concept: easier or harder.
+- Reference: the staircase in `docs/pilot/samples/place-value-session.html`.
+- Tests: level moves only after the stated streaks, "not sure" never counts as wrong, level is absent from every learner-facing response, skip requires 2 of 3.
+
+## Content Studio (cross-cutting, built in Phases 1 and 2)
+
+See `SPEC.md`, "Content Studio". Phase 1 builds the lean review queue and the reviewer role; Phase 2 builds the generation adapters and pre-checks.
+
+- **Phase 1:** a `reviewer` role that can rate and comment but never publish and sees no child data. Review queue under `/studio/curriculum/review` showing the card exactly as a child sees it, with audio, five rubric checks, approve / request changes / reject, comments, and version history. Editing an approved item returns it to review. A "reported questions" list fed by the in-app report button.
+- **Phase 2:** `api/app/pipeline/adapters/` with one interface each for text, image (fixed style reference) and TTS (Indian-English voice), selectable by config. Pre-checks run before items enter the queue: recompute maths answers, reading-level check, dedupe against the private reference set, second-model critique that must find exactly one correct answer. Failing items are logged and never queued.
+- Do not build a separate admin app. Reuse the existing Studio area and admin guard.
+- Tests: reviewer cannot publish, reviewer endpoints expose no child data, edit-after-approve returns to review, failed pre-checks never reach the queue.
 
 ## How to run this with Claude Code
 
