@@ -61,6 +61,17 @@ async def cmd_generate(args) -> None:
             )
 
 
+async def cmd_generate_map(args) -> None:
+    from app.pipeline.concept_map import generate_map
+
+    with open(args.file, encoding="utf-8") as fh:
+        mapping = json.load(fh)
+    only = [t.strip() for t in args.only.split("||")] if args.only else None
+    async with AsyncSessionLocal() as db:
+        result = await generate_map(db, mapping, only=only)
+        print(f"Done. chapter_id={result['chapter_id']} generated {result['generated']}/{result['concepts']} concept(s).")
+
+
 async def cmd_dedupe(args) -> None:
     async with AsyncSessionLocal() as db:
         concepts = await _concepts_for(db, concept_id=args.concept_id, chapter_id=args.chapter_id)
@@ -148,6 +159,10 @@ def main() -> None:
     g.add_argument("--band", type=int, default=2)
     g.add_argument("--seed", type=int, default=None)
 
+    m = sub.add_parser("generate-map", help="seed concepts from a concept-map JSON and generate them")
+    m.add_argument("--file", required=True, help="path to the concept-map JSON")
+    m.add_argument("--only", help="generate only these concept titles (separate multiple with ||)")
+
     d = sub.add_parser("dedupe", help="re-score draft items against the reference set")
     d.add_argument("--concept-id")
     d.add_argument("--chapter-id")
@@ -162,6 +177,8 @@ def main() -> None:
     args = parser.parse_args()
     if args.command == "generate":
         asyncio.run(cmd_generate(args))
+    elif args.command == "generate-map":
+        asyncio.run(cmd_generate_map(args))
     elif args.command == "dedupe":
         asyncio.run(cmd_dedupe(args))
     elif args.command == "export-review":

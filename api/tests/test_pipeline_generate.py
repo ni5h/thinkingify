@@ -21,7 +21,7 @@ class SpyText:
 class StubImg:
     name = "stub"
 
-    def generate(self, brief):
+    async def generate(self, brief):
         return ImageResult(brief=brief, url=None, placeholder=True)
 
 

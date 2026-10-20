@@ -33,10 +33,12 @@ class EmbeddingAdapter(Protocol):
 
 @dataclass(frozen=True)
 class ImageResult:
-    # Either a stored url (real provider) or a placeholder carrying the brief
-    # (stub). `placeholder=True` means no image was actually generated yet.
+    # A card illustration: `svg` is inline SVG markup (the Claude-SVG adapter),
+    # `url` is a stored raster (a future provider), or neither for the stub
+    # placeholder. `placeholder=True` means no real image was produced.
     brief: str
     url: str | None = None
+    svg: str | None = None
     placeholder: bool = True
 
 
@@ -44,7 +46,7 @@ class ImageResult:
 class ImageAdapter(Protocol):
     name: str
 
-    def generate(self, brief: str) -> ImageResult: ...
+    async def generate(self, brief: str) -> ImageResult: ...
 
 
 @dataclass(frozen=True)

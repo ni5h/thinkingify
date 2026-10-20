@@ -16,7 +16,14 @@ class AnthropicClientError(Exception):
     """
 
 
-async def send_structured(*, system: str, messages: list[dict[str, str]], tool: dict) -> dict:
+async def send_structured(
+    *,
+    system: str,
+    messages: list[dict[str, str]],
+    tool: dict,
+    max_tokens: int = MAX_REPLY_TOKENS,
+    timeout: float | None = None,
+) -> dict:
     """Forced tool-choice structured output — guaranteed-schema, unlike
     hoping a free-text reply happens to contain valid JSON. `tool` is a full
     Anthropic tool definition (name/description/input_schema); the caller
@@ -29,7 +36,7 @@ async def send_structured(*, system: str, messages: list[dict[str, str]], tool: 
 
     payload = {
         "model": settings.anthropic_model,
-        "max_tokens": MAX_REPLY_TOKENS,
+        "max_tokens": max_tokens,
         "system": system,
         "messages": messages,
         "tools": [tool],
@@ -42,7 +49,7 @@ async def send_structured(*, system: str, messages: list[dict[str, str]], tool: 
     }
 
     try:
-        async with httpx.AsyncClient(timeout=settings.anthropic_timeout_seconds) as client:
+        async with httpx.AsyncClient(timeout=timeout or settings.anthropic_timeout_seconds) as client:
             response = await client.post(ANTHROPIC_API_URL, json=payload, headers=headers)
     except httpx.HTTPError as exc:
         raise AnthropicClientError(f"Request to Anthropic failed: {exc}") from exc

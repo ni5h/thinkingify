@@ -32,6 +32,7 @@ async def build_concept(
     band: int = 2,
     description: str = "",
     seed: int | None = None,
+    question_styles: list[str] | None = None,
     log: Callable[[str], None] = print,
 ) -> dict:
     session = await generate_session(
@@ -43,6 +44,7 @@ async def build_concept(
         band=band,
         description=description,
         seed=seed,
+        question_styles=question_styles,
     )
 
     kept, dropped = dedupe(

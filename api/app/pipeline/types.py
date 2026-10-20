@@ -19,7 +19,8 @@ class GeneratedCard:
     think_options: list[str]
     think_answer_index: int
     think_why: str
-    visual_url: str | None = None  # set once a real image adapter runs
+    visual_url: str | None = None  # set once a raster image adapter runs
+    visual_svg: str | None = None  # inline SVG from the Claude-SVG adapter
 
 
 @dataclass
