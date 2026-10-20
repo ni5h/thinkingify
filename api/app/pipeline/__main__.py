@@ -114,28 +114,16 @@ async def cmd_export_review(args) -> None:
 
 
 def cmd_ingest(_args) -> None:
-    """Local OCR of scans into the gitignored reference folder. No model calls —
-    the reference text never leaves the machine or enters a prompt."""
-    root = reference_path()
-    if not root.exists():
-        sys.exit(f"Reference folder {root} does not exist. Create it and add scans locally (it is gitignored).")
-    images = [p for p in root.rglob("*") if p.suffix.lower() in {".png", ".jpg", ".jpeg", ".tif", ".tiff"}]
-    if not images:
-        print(f"No images to OCR under {root}.")
-        return
+    """Local OCR of scans + a draft topic outline. No model calls — the
+    reference text never leaves the machine or enters a prompt."""
     try:
-        import pytesseract
-        from PIL import Image
+        from app.pipeline.ingest import run_ingest
     except ImportError:
         sys.exit("OCR needs pytesseract + the tesseract binary. Install them locally, then re-run.")
-    done = 0
-    for img in images:
-        target = img.with_suffix(".txt")
-        if target.exists():
-            continue
-        target.write_text(pytesseract.image_to_string(Image.open(img)), encoding="utf-8")
-        done += 1
-    print(f"OCR'd {done} new image(s) to local .txt (never committed or prompted).")
+    try:
+        run_ingest(reference_path())
+    except FileNotFoundError as exc:
+        sys.exit(str(exc))
 
 
 def main() -> None:

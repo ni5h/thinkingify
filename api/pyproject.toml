@@ -38,6 +38,9 @@ aiosqlite = "^0.20"
 # rather than a hard dependency (the default hash adapter needs nothing).
 [tool.poetry.group.pipeline.dependencies]
 textstat = "^0.7"
+# Local OCR intake for the private reference set (needs the system `tesseract`
+# binary too). Runs on-machine only; scan text never reaches a model.
+pytesseract = "^0.3"
 
 [build-system]
 requires = ["poetry-core"]
