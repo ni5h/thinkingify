@@ -12,7 +12,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import JSON, DateTime, Enum, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, Enum, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -48,6 +48,12 @@ class ItemKind(str, enum.Enum):
 class WritingKind(str, enum.Enum):
     explain = "explain"
     recall = "recall"
+
+
+class AnswerResult(str, enum.Enum):
+    right = "right"
+    wrong = "wrong"
+    unsure = "unsure"  # never counts as a wrong answer
 
 
 class Subject(Base, TimestampMixin):
@@ -164,7 +170,11 @@ class Mastery(Base, TimestampMixin):
     child_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     concept_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("concepts.id"), nullable=False)
     baseline: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # "learning" | "solid" | "needs_look". mastered_at is set the first time the
+    # concept reaches "solid" and never cleared, so a later demotion to
+    # "needs_look" never re-locks concepts that depend on this one.
     state: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    mastered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class Writing(Base, TimestampMixin):
@@ -178,3 +188,44 @@ class Writing(Base, TimestampMixin):
     kind: Mapped[WritingKind] = mapped_column(Enum(WritingKind, name="writingkind", schema="thinkingify"), nullable=False)
     text: Mapped[str] = mapped_column(Text, nullable=False, default="")
     feedback: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class AnswerEvent(Base, TimestampMixin):
+    """One graded answer. Logged for every answer from day one (with the item's
+    difficulty at the time) so the staircase can later be replaced by Elo/BKT.
+    The child never sees any of this."""
+
+    __tablename__ = "answer_events"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    child_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    item_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("items.id"), nullable=False)
+    concept_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("concepts.id"), nullable=False)
+    level: Mapped[int] = mapped_column(Integer, nullable=False)
+    result: Mapped[AnswerResult] = mapped_column(
+        Enum(AnswerResult, name="answerresult", schema="thinkingify"), nullable=False
+    )
+    hint_used: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
+class PracticeSession(Base, TimestampMixin):
+    """Server-side quick-check state (the staircase level/streaks the child must
+    never see). `check` is the normal run; `challenge` is the 3-item "I already
+    know this" skip test."""
+
+    __tablename__ = "practice_sessions"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    child_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    concept_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("concepts.id"), nullable=False)
+    mode: Mapped[str] = mapped_column(String(20), nullable=False, default="check")
+    level: Mapped[int] = mapped_column(Integer, nullable=False, default=2)
+    start_level: Mapped[int] = mapped_column(Integer, nullable=False, default=2)
+    up_streak: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    miss_streak: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    asked_item_ids: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list, server_default="[]")
+    answered: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    total: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
+    right_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")

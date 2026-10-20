@@ -26,6 +26,12 @@ _MASTERY_WINDOW = 20  # evaluated over the trailing N
 _MASTERY_ACCURACY = 0.90
 _MASTERY_SPEED_FRACTION = 0.60  # median must be <= this * baseline
 
+# Retention: a mastered tier whose recent accuracy slips below the floor drops
+# back to active ("needs another look"). It never re-locks later tiers.
+_RETENTION_WINDOW = 20
+_RETENTION_MIN = 10
+_RETENTION_FLOOR = 0.70
+
 
 async def get_or_create_state(db: AsyncSession, user: User) -> list[BrotherTierProgress]:
     result = await db.execute(select(BrotherTierProgress).where(BrotherTierProgress.user_id == user.id))
@@ -127,6 +133,8 @@ async def record_answer(
     unlocked_tier_id: str | None = None
     if not question.get("is_preview", False):
         mastered_tier_id, unlocked_tier_id = await _evaluate(db, user, tier.id)
+        # A mastered tier can slip back to "needs another look" on retention.
+        await _maybe_demote(db, user, tier.id)
 
     return is_correct, correct_answer, mastered_tier_id, unlocked_tier_id
 
@@ -207,6 +215,23 @@ async def _maybe_unlock_next(db: AsyncSession, user_id: uuid.UUID, mastered_tier
     if next_progress.status == BrotherTierStatus.locked:
         next_progress.status = BrotherTierStatus.active
         return next_id
+    return None
+
+
+async def _maybe_demote(db: AsyncSession, user: User, tier_id: str) -> str | None:
+    """Retention: a mastered tier whose recent accuracy slips below the floor
+    drops back to active so it comes round again. Deliberately does NOT touch
+    later tiers — demotion never re-locks anything already unlocked."""
+    progress = await _get_progress(db, user.id, tier_id)
+    if progress.status != BrotherTierStatus.mastered:
+        return None
+    window = (await tier_attempts(db, user.id, tier_id))[-_RETENTION_WINDOW:]
+    if len(window) >= _RETENTION_MIN and accuracy(window) < _RETENTION_FLOOR:
+        progress.status = BrotherTierStatus.active
+        progress.mastered_at = None
+        await db.commit()
+        return tier_id
+    await db.commit()
     return None
 
 

@@ -50,6 +50,16 @@ export const routes: Routes = [
     canActivate: [authGuard],
   },
   {
+    path: 'ramanujan/learn/:conceptId',
+    loadComponent: () => import('./features/ramanujan/learn/card-session.component'),
+    canActivate: [authGuard],
+  },
+  {
+    path: 'ramanujan/learn',
+    loadComponent: () => import('./features/ramanujan/learn/learn-landing.component'),
+    canActivate: [authGuard],
+  },
+  {
     path: 'ramanujan/problems/:slug',
     loadComponent: () => import('./features/ramanujan/problem-solver/problem-solver.component'),
     canActivate: [authGuard],

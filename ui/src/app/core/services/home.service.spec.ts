@@ -1,4 +1,4 @@
-import { selectContinue, selectCrackIt } from './home.service';
+import { selectConceptContinue, selectContinue, selectCrackIt } from './home.service';
 import { ContentListItem } from '../models/content';
 import { BrotherTierState } from '../models/brother';
 import { GameStats } from '../models/puzzle';
@@ -74,5 +74,43 @@ describe('selectCrackIt', () => {
       kak('divide', '2026-10-07T10:00:00Z'),
     ];
     expect(selectCrackIt(stats).operation).toBe('subtract');
+  });
+});
+
+describe('selectConceptContinue', () => {
+  const concepts = [
+    { id: 'c1', title: 'Reading large numbers', order_index: 0 },
+    { id: 'c2', title: 'Place value', order_index: 1 },
+    { id: 'c3', title: 'Comparing', order_index: 2 },
+  ];
+
+  it('returns null when there is no chapter content', () => {
+    expect(selectConceptContinue('Big Numbers', [], [])).toBeNull();
+  });
+
+  it('points at the first available concept that is not yet solid', () => {
+    const progress = [
+      { concept_id: 'c1', state: 'solid', available: true },
+      { concept_id: 'c2', state: 'learning', available: true },
+      { concept_id: 'c3', state: 'learning', available: false },
+    ];
+    const card = selectConceptContinue('Big Numbers', concepts, progress)!;
+    expect(card.room).toBe('ramanujan');
+    expect(card.title).toBe('Place value');
+    expect(card.route).toEqual(['/ramanujan/learn', 'c2']);
+    expect(card.subtitle).toBe('Big Numbers');
+    // trail reflects how many concepts are solid
+    expect(card.steps.filter((s) => s.state === 'done').length).toBe(1);
+  });
+
+  it('skips locked concepts', () => {
+    const progress = [
+      { concept_id: 'c1', state: 'solid', available: true },
+      { concept_id: 'c2', state: 'solid', available: true },
+      { concept_id: 'c3', state: 'learning', available: false },
+    ];
+    // c3 is the only non-solid but it's locked → fall back to first available
+    const card = selectConceptContinue('Big Numbers', concepts, progress)!;
+    expect(card.title).toBe('Reading large numbers');
   });
 });

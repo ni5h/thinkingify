@@ -50,15 +50,23 @@ export default class RamanujanComponent {
   readonly doors = computed<RoomDoor[]>(() => {
     const probs = this.problems();
     const doors: RoomDoor[] = [];
-    // "Learn" starts coached problem-solving — only shown once problems exist.
+    // The card-session Learn flow (chapter → concept → cards → quick check).
+    doors.push({
+      id: 'learn',
+      title: 'Learn',
+      blurb: 'Short cards on one idea, then a few questions.',
+      route: '/ramanujan/learn',
+      icon: 'learn',
+      recommended: true,
+    });
+    // Coached problem-solving — only shown once problems exist.
     if (probs.length > 0) {
       doors.push({
-        id: 'learn',
-        title: 'Learn',
+        id: 'problems',
+        title: 'Coached problems',
         blurb: 'Work a problem through with your thinking coach.',
         route: ['/ramanujan/problems', probs[0].slug],
         icon: 'learn',
-        recommended: true,
       });
     }
     doors.push({
