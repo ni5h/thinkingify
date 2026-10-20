@@ -72,6 +72,17 @@ async def cmd_generate_map(args) -> None:
         print(f"Done. chapter_id={result['chapter_id']} generated {result['generated']}/{result['concepts']} concept(s).")
 
 
+async def cmd_regen_items(args) -> None:
+    from app.pipeline.concept_map import regenerate_map_items
+
+    with open(args.file, encoding="utf-8") as fh:
+        mapping = json.load(fh)
+    only = [t.strip() for t in args.only.split("||")] if args.only else None
+    async with AsyncSessionLocal() as db:
+        result = await regenerate_map_items(db, mapping, only=only)
+        print(f"Done. regenerated items for {result['regenerated']} concept(s).")
+
+
 async def cmd_dedupe(args) -> None:
     async with AsyncSessionLocal() as db:
         concepts = await _concepts_for(db, concept_id=args.concept_id, chapter_id=args.chapter_id)
@@ -163,6 +174,10 @@ def main() -> None:
     m.add_argument("--file", required=True, help="path to the concept-map JSON")
     m.add_argument("--only", help="generate only these concept titles (separate multiple with ||)")
 
+    r = sub.add_parser("regen-items", help="regenerate only the items for existing concepts (keeps cards)")
+    r.add_argument("--file", required=True, help="path to the concept-map JSON")
+    r.add_argument("--only", help="regenerate only these concept titles (separate multiple with ||)")
+
     d = sub.add_parser("dedupe", help="re-score draft items against the reference set")
     d.add_argument("--concept-id")
     d.add_argument("--chapter-id")
@@ -179,6 +194,8 @@ def main() -> None:
         asyncio.run(cmd_generate(args))
     elif args.command == "generate-map":
         asyncio.run(cmd_generate_map(args))
+    elif args.command == "regen-items":
+        asyncio.run(cmd_regen_items(args))
     elif args.command == "dedupe":
         asyncio.run(cmd_dedupe(args))
     elif args.command == "export-review":

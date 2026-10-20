@@ -15,7 +15,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.curriculum import Chapter, Concept, Subject
-from app.pipeline.run import build_concept
+from app.pipeline.run import build_concept, regenerate_items
 
 _SUBJECT_NAMES = {"evs": "EVS", "maths": "Maths"}
 
@@ -76,3 +76,39 @@ async def generate_map(
             )
         )
     return {"chapter_id": str(chapter.id), "concepts": len(concepts), "generated": len(results)}
+
+
+async def regenerate_map_items(
+    db: AsyncSession, mapping: dict, *, only: list[str] | None = None, log: Callable[[str], None] = print
+) -> dict:
+    """Regenerate only the items for the mapping's concepts that already exist,
+    keeping their cards. Matches existing concepts by title."""
+    subject_code = mapping["subject"]
+    by_title = {c["title"]: c for c in mapping["concepts"]}
+    concepts = (
+        await db.execute(
+            select(Concept)
+            .join(Chapter, Concept.chapter_id == Chapter.id)
+            .join(Subject, Chapter.subject_id == Subject.id)
+            .where(Subject.code == subject_code)
+            .order_by(Concept.order_index)
+        )
+    ).scalars().all()
+
+    done = 0
+    for concept in concepts:
+        if concept.title not in by_title or (only and concept.title not in only):
+            continue
+        src = by_title[concept.title]
+        log(f"Regenerating items: {concept.title}")
+        await regenerate_items(
+            db,
+            concept_id=str(concept.id),
+            title=concept.title,
+            subject_code=subject_code,
+            band=int(src.get("difficulty_band", 2)),
+            question_styles=src.get("question_styles"),
+            log=log,
+        )
+        done += 1
+    return {"regenerated": done}
