@@ -25,9 +25,13 @@ CARD_SYSTEM = (
 
 ITEMS_SYSTEM = (
     "You write 4 to 5 quick-check questions for a nine-year-old in India about one "
-    "concept. Each has one clearly correct answer, a few plausible options, a "
-    "one-line hint, a difficulty from 1 (easiest) to 5, and the index of the card "
-    "it came from. Age-appropriate, Indian context, calm tone."
+    "concept. CRITICAL: keep the WORDING simple — short sentences (aim 8 to 12 "
+    "words), everyday words, one idea per question. Make a question harder through "
+    "the THINKING it needs or trickier options, never through long sentences or big "
+    "words; a nine-year-old must be able to read it easily. Each question has one "
+    "clearly correct answer, a few plausible options, a one-line hint, a difficulty "
+    "from 1 (easiest) to 5, and the index of the card it came from. Indian context, "
+    "calm tone, no score."
 )
 
 CARD_TOOL = {
@@ -96,11 +100,17 @@ def build_card_prompt(*, title: str, description: str, band: int) -> str:
     )
 
 
-def build_items_prompt(*, title: str, cards: list[GeneratedCard], band: int) -> str:
-    card_list = "\n".join(f"{i}. {c.title}" for i, c in enumerate(cards))
+def build_items_prompt(*, title: str, card_titles: list[str], band: int, question_styles: list[str]) -> str:
+    card_list = "\n".join(f"{i}. {t}" for i, t in enumerate(card_titles))
+    styles = ""
+    if question_styles:
+        styles = (
+            "\nWrite the questions in these olympiad-style thinking patterns "
+            f"(mix across the set): {', '.join(question_styles)}. Original wording only."
+        )
     return (
         f"Concept: {title}\nDifficulty band: {band}.\nCards (use the index as "
-        f"source_card_index):\n{card_list}\nWrite 4 to 5 quick-check questions."
+        f"source_card_index):\n{card_list}{styles}\nWrite 4 to 5 quick-check questions."
     )
 
 
@@ -142,14 +152,16 @@ async def generate_session(
     band: int = 2,
     description: str = "",
     seed: int | None = None,
+    question_styles: list[str] | None = None,
 ) -> GeneratedSession:
     data = await text_adapter.generate(
         system=CARD_SYSTEM, prompt=build_card_prompt(title=title, description=description, band=band), tool=CARD_TOOL
     )
     cards = [_card_from(c) for c in data.get("cards", [])]
     for card in cards:
-        result = image_adapter.generate(card.visual_brief or card.text)
-        card.visual_url = result.url  # None while stubbed
+        result = await image_adapter.generate(card.visual_brief or card.text)
+        card.visual_url = result.url
+        card.visual_svg = result.svg
 
     recap = GeneratedRecap(lines=list(data.get("recap_lines", [])), remember=data.get("remember", ""))
 
@@ -157,7 +169,9 @@ async def generate_session(
         items = maths.generate_items(band=band, n=5, seed=seed)
     else:
         idata = await text_adapter.generate(
-            system=ITEMS_SYSTEM, prompt=build_items_prompt(title=title, cards=cards, band=band), tool=ITEMS_TOOL
+            system=ITEMS_SYSTEM,
+            prompt=build_items_prompt(title=title, card_titles=[c.title for c in cards], band=band, question_styles=question_styles or []),
+            tool=ITEMS_TOOL,
         )
         items = [_item_from(d, len(cards)) for d in idata.get("items", [])]
 

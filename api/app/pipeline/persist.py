@@ -30,6 +30,7 @@ async def persist_session(
                 "title": card.title,
                 "text": card.text,
                 "visual_brief": card.visual_brief,
+                "visual_svg": card.visual_svg,
                 "audio_script": card.audio_script,
                 "think": {
                     "q": card.think_q,

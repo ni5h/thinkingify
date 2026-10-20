@@ -50,7 +50,7 @@ class Settings(BaseSettings):
     # post-review), and embeddings default to the dependency-free hash adapter
     # — a real run sets `pipeline_embedding_adapter=local` for the local model.
     pipeline_text_adapter: str = "claude"  # claude | stub
-    pipeline_image_adapter: str = "stub"  # stub (real provider wired later)
+    pipeline_image_adapter: str = "svg"  # svg (Claude-drawn) | stub | (raster provider later)
     pipeline_tts_adapter: str = "stub"  # stub (post-review step)
     pipeline_embedding_adapter: str = "hash"  # local | hash
     # Local embedding model (model2vec static embeddings — CPU-only, torch-free)
@@ -65,7 +65,9 @@ class Settings(BaseSettings):
     # duplicate of another generated item or the private reference set.
     pipeline_dedupe_threshold: float = 0.88
     # Reading level: items above this Flesch-Kincaid grade are too hard for 9.
-    pipeline_reading_grade_max: float = 5.0
+    # FK over-penalises necessary science vocab (e.g. "herbivore"), so the
+    # ceiling sits a little above grade 4-5.
+    pipeline_reading_grade_max: float = 6.5
     # Private reference intake (scans/olympiad banks). Gitignored; a test fails
     # if anything under it is tracked. Never committed, shown, or put in prompts.
     reference_dir: str = "private_reference"

@@ -14,10 +14,14 @@ from app.services.anthropic_client import send_structured
 class ClaudeTextAdapter:
     name = "claude"
 
-    def __init__(self, model: str | None = None) -> None:
+    def __init__(self, model: str | None = None, max_tokens: int = 1024, timeout: float | None = None) -> None:
         # Optional per-role model (generation vs critique); falls back to the
-        # app-wide anthropic_model inside send_structured when unset.
+        # app-wide anthropic_model inside send_structured when unset. A card
+        # session is large, so generation needs a high max_tokens and a longer
+        # timeout; critique is short and uses the defaults.
         self._model = model
+        self._max_tokens = max_tokens
+        self._timeout = timeout
 
     async def generate(self, *, system: str, prompt: str, tool: dict) -> dict:
         # send_structured reads settings.anthropic_model; temporarily override
@@ -27,12 +31,14 @@ class ClaudeTextAdapter:
             settings.anthropic_model = self._model
             try:
                 return await send_structured(
-                    system=system, messages=[{"role": "user", "content": prompt}], tool=tool
+                    system=system, messages=[{"role": "user", "content": prompt}], tool=tool,
+                    max_tokens=self._max_tokens, timeout=self._timeout,
                 )
             finally:
                 settings.anthropic_model = original
         return await send_structured(
-            system=system, messages=[{"role": "user", "content": prompt}], tool=tool
+            system=system, messages=[{"role": "user", "content": prompt}], tool=tool,
+            max_tokens=self._max_tokens, timeout=self._timeout,
         )
 
 
@@ -42,8 +48,10 @@ class StubTextAdapter:
 
     name = "stub"
 
-    def __init__(self, model: str | None = None) -> None:
+    def __init__(self, model: str | None = None, max_tokens: int = 1024, timeout: float | None = None) -> None:
         self._model = model
+        self._max_tokens = max_tokens
+        self._timeout = timeout
 
     async def generate(self, *, system: str, prompt: str, tool: dict) -> dict:
         schema = tool.get("input_schema", {})
