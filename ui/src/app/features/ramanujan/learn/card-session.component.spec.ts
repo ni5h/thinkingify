@@ -7,7 +7,9 @@ const CARDS = [
   {
     id: 'a1', concept_id: 'c', kind: 'card', url: null, order_index: 0,
     data: {
-      title: 'Houses', text: 'Digits live in houses.', visual_brief: '', audio_script: 'think about it',
+      title: 'Houses', text: 'Digits live in houses.', visual_brief: '',
+      visual_svg: '<svg viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" data-marker="card-art"/></svg>',
+      audio_script: 'think about it',
       think: { q: 'Which house?', options: ['Tens', 'Ones'], answer_index: 0, why: 'count from the right' },
     },
   },
@@ -52,6 +54,16 @@ describe('CardSessionComponent', () => {
     const text = fixture.nativeElement.textContent as string;
     expect(text).toContain('Houses');
     expect(text).toContain('Digits live in houses.');
+  });
+
+  it('renders the card\'s SVG illustration inline (not the placeholder)', async () => {
+    const fixture = make(fakeLearn({}));
+    await fixture.componentInstance.ngOnInit();
+    fixture.componentInstance.startCards();
+    fixture.detectChanges();
+    const svg = fixture.nativeElement.querySelector('svg [data-marker="card-art"]');
+    expect(svg).toBeTruthy();
+    expect(fixture.nativeElement.textContent).not.toContain('Illustration for');
   });
 
   it('wrong answer shows a hint and the source card, never a score or level', async () => {

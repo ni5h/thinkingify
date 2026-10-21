@@ -157,7 +157,9 @@ async def generate_session(
     data = await text_adapter.generate(
         system=CARD_SYSTEM, prompt=build_card_prompt(title=title, description=description, band=band), tool=CARD_TOOL
     )
-    cards = [_card_from(c) for c in data.get("cards", [])]
+    if not isinstance(data, dict):
+        data = {}
+    cards = [_card_from(c) for c in data.get("cards", []) if isinstance(c, dict)]
     for card in cards:
         result = await image_adapter.generate(card.visual_brief or card.text)
         card.visual_url = result.url
@@ -173,7 +175,9 @@ async def generate_session(
             prompt=build_items_prompt(title=title, card_titles=[c.title for c in cards], band=band, question_styles=question_styles or []),
             tool=ITEMS_TOOL,
         )
-        items = [_item_from(d, len(cards)) for d in idata.get("items", [])]
+        if not isinstance(idata, dict):
+            idata = {}
+        items = [_item_from(d, len(cards)) for d in idata.get("items", []) if isinstance(d, dict)]
 
     return GeneratedSession(
         concept_id=concept_id,
