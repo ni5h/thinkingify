@@ -1,5 +1,5 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ConceptProgress, LearnConcept, LearnService } from '../../../core/services/learn.service';
 
 interface TrailConcept extends LearnConcept {
@@ -13,7 +13,7 @@ interface TrailConcept extends LearnConcept {
   standalone: true,
   imports: [RouterLink],
   template: `
-    <a routerLink="/ramanujan" class="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-muted hover:bg-cloud/60 hover:text-ink transition-colors">&larr; Ramanujan</a>
+    <a [routerLink]="roomPath" class="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-muted hover:bg-cloud/60 hover:text-ink transition-colors">&larr; {{ roomName }}</a>
     <h1 class="font-display text-3xl mt-4">Learn</h1>
 
     @if (loading()) {
@@ -28,7 +28,7 @@ interface TrailConcept extends LearnConcept {
       <div class="mt-5 flex flex-col gap-2">
         @for (c of concepts(); track c.id) {
           @if (c.available) {
-            <a [routerLink]="['/ramanujan/learn', c.id]" class="rounded-2xl border border-cloud bg-white shadow-sm p-4 flex items-center justify-between gap-3 hover:border-moss hover:shadow-md transition-all">
+            <a [routerLink]="[learnPath, c.id]" class="rounded-2xl border border-cloud bg-white shadow-sm p-4 flex items-center justify-between gap-3 hover:border-moss hover:shadow-md transition-all">
               <span class="text-ink font-medium">{{ c.title }}</span>
               <span [class]="badge(c.state)">{{ label(c.state) }}</span>
             </a>
@@ -45,6 +45,13 @@ interface TrailConcept extends LearnConcept {
 })
 export default class LearnLandingComponent implements OnInit {
   private readonly learn = inject(LearnService);
+  private readonly route = inject(ActivatedRoute);
+
+  // Which room/subject this landing serves — supplied by the route's `data`.
+  readonly subjectCode = (this.route.snapshot.data['subjectCode'] as string) ?? 'maths';
+  readonly roomPath = (this.route.snapshot.data['roomPath'] as string) ?? '/ramanujan';
+  readonly roomName = (this.route.snapshot.data['roomName'] as string) ?? 'Ramanujan';
+  readonly learnPath = (this.route.snapshot.data['learnPath'] as string) ?? '/ramanujan/learn';
 
   readonly loading = signal(true);
   readonly chapterTitle = signal('');
@@ -53,9 +60,9 @@ export default class LearnLandingComponent implements OnInit {
   async ngOnInit(): Promise<void> {
     try {
       const subjects = await this.learn.getSubjects();
-      const maths = subjects.find((s) => s.code === 'maths');
-      if (!maths) return;
-      const chapters = await this.learn.getChapters(maths.id);
+      const subject = subjects.find((s) => s.code === this.subjectCode);
+      if (!subject) return;
+      const chapters = await this.learn.getChapters(subject.id);
       if (chapters.length === 0) return;
       const chapter = chapters.sort((a, b) => a.order_index - b.order_index)[0];
       this.chapterTitle.set(chapter.title);

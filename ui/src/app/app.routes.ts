@@ -65,9 +65,21 @@ export const routes: Routes = [
     canActivate: [authGuard],
   },
   {
+    path: 'einstein/learn/:conceptId',
+    loadComponent: () => import('./features/ramanujan/learn/card-session.component'),
+    canActivate: [authGuard],
+    data: { learnPath: '/einstein/learn' },
+  },
+  {
+    path: 'einstein/learn',
+    loadComponent: () => import('./features/ramanujan/learn/learn-landing.component'),
+    canActivate: [authGuard],
+    data: { subjectCode: 'evs', roomPath: '/einstein', roomName: 'Einstein', learnPath: '/einstein/learn' },
+  },
+  {
     path: 'einstein',
     loadComponent: () => import('./features/einstein/einstein.component'),
-    canActivate: [pilotRedirectGuard],
+    canActivate: [authGuard],
   },
   {
     path: 'rowling',

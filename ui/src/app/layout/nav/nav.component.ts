@@ -25,7 +25,7 @@ const NAV_ITEMS: NavItem[] = [
 
 // Hidden from the nav during the pilot (routes also redirect — see
 // pilotRedirectGuard). Kept as paths so the filter survives label changes.
-const PILOT_HIDDEN_PATHS = new Set(['/einstein', '/progress']);
+const PILOT_HIDDEN_PATHS = new Set(['/progress']);
 
 @Component({
   selector: 'app-nav',

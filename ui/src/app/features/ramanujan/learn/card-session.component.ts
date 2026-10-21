@@ -18,7 +18,7 @@ type ThinkResult = 'right' | 'wrong' | 'unsure';
   standalone: true,
   imports: [RouterLink],
   template: `
-    <a routerLink="/ramanujan/learn" class="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-muted hover:bg-cloud/60 hover:text-ink transition-colors">&larr; Learn</a>
+    <a [routerLink]="learnPath" class="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-muted hover:bg-cloud/60 hover:text-ink transition-colors">&larr; Learn</a>
 
     @if (loading()) {
       <p class="text-muted mt-6">Loading…</p>
@@ -134,7 +134,7 @@ type ThinkResult = 'right' | 'wrong' | 'unsure';
             <p class="text-xs font-mono tracking-wider text-moss-dark">ALL DONE</p>
             <h2 class="font-display text-2xl text-ink mt-1">You finished the session</h2>
             <p class="text-muted mt-2">{{ doneMessage() }}</p>
-            <a routerLink="/ramanujan/learn" class="inline-block mt-6 rounded-xl bg-moss px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-moss-dark transition-colors">Back to Learn</a>
+            <a [routerLink]="learnPath" class="inline-block mt-6 rounded-xl bg-moss px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-moss-dark transition-colors">Back to Learn</a>
           </section>
         }
       }
@@ -145,6 +145,7 @@ export default class CardSessionComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly learn = inject(LearnService);
 
+  readonly learnPath = (this.route.snapshot.data['learnPath'] as string) ?? '/ramanujan/learn';
   private readonly conceptId = signal('');
   readonly loading = signal(true);
   readonly error = signal('');
