@@ -48,6 +48,7 @@ export interface CardData {
   title: string;
   text: string;
   visual_brief: string;
+  visual_svg?: string | null;
   audio_script: string;
   think: CardThink;
 }
