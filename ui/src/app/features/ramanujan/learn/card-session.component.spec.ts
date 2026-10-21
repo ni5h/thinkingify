@@ -35,7 +35,7 @@ function make(service: unknown) {
     providers: [
       provideRouter([]),
       { provide: LearnService, useValue: service },
-      { provide: ActivatedRoute, useValue: { snapshot: { paramMap: new Map([['conceptId', 'c']]) } } },
+      { provide: ActivatedRoute, useValue: { snapshot: { paramMap: new Map([['conceptId', 'c']]), data: {} } } },
     ],
   });
   return TestBed.createComponent(CardSessionComponent);

@@ -125,7 +125,7 @@ export default class DashboardComponent implements OnInit {
     { name: 'Ramanujan', subject: 'Maths', blurb: 'Learn each chapter, then crack olympiad-style puzzles.', route: '/ramanujan', color: '#14746F', pilot: true },
     { name: 'Rowling', subject: 'Writing', blurb: 'Explain ideas and tell stories in your own words.', route: '/rowling', color: '#7B3F86', pilot: true },
     { name: 'Sherlock Holmes', subject: 'Puzzles', blurb: 'Warm-up puzzles that sharpen your reasoning.', route: '/sherlock', color: '#94590C', pilot: true },
-    { name: 'Einstein', subject: 'Science & EVS', blurb: 'Coming soon.', route: '/einstein', color: '#2F5DA8', pilot: false },
+    { name: 'Einstein', subject: 'Science & EVS', blurb: 'Learn each chapter with cards, pictures and questions.', route: '/einstein', color: '#2F5DA8', pilot: true },
   ];
 
   // Only rooms that exist for the current mode (Einstein is hidden in the pilot).

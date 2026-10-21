@@ -30,12 +30,12 @@ describe('NavComponent nav filtering', () => {
     expect(paths).toContain('/progress');
   });
 
-  it('hides Einstein and Progress (4 tabs) when pilotMode is on', () => {
+  it('hides Progress (5 tabs, Einstein now live) when pilotMode is on', () => {
     const nav = createNav(true);
     const paths = nav.items.map((i) => i.path);
-    expect(nav.items.length).toBe(4);
-    expect(paths).not.toContain('/einstein');
+    expect(nav.items.length).toBe(5);
+    expect(paths).toContain('/einstein');
     expect(paths).not.toContain('/progress');
-    expect(paths).toEqual(['/dashboard', '/rowling', '/ramanujan', '/sherlock']);
+    expect(paths).toEqual(['/dashboard', '/rowling', '/ramanujan', '/einstein', '/sherlock']);
   });
 });
