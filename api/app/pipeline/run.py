@@ -128,7 +128,9 @@ async def regenerate_items(
             ),
             tool=ITEMS_TOOL,
         )
-        items = [_item_from(d, len(card_assets)) for d in idata.get("items", [])]
+        if not isinstance(idata, dict):
+            idata = {}
+        items = [_item_from(d, len(card_assets)) for d in idata.get("items", []) if isinstance(d, dict)]
 
     kept, dropped = dedupe(
         items,
