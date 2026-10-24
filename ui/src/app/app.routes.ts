@@ -166,6 +166,11 @@ export const routes: Routes = [
     canActivate: [authGuard, adminGuard],
   },
   {
+    path: 'studio/curriculum/chapters/:id/publish',
+    loadComponent: () => import('./features/studio/curriculum/chapter-publish.component'),
+    canActivate: [authGuard, adminGuard],
+  },
+  {
     path: 'studio/curriculum',
     loadComponent: () => import('./features/studio/curriculum/curriculum-tree.component'),
     canActivate: [authGuard, adminGuard],

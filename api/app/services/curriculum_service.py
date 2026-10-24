@@ -8,7 +8,7 @@ import uuid
 from datetime import UTC, datetime
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.curriculum import (
@@ -349,3 +349,91 @@ async def list_live_assets(db: AsyncSession, concept_id: uuid.UUID) -> list[Asse
         Asset.deleted_at.is_(None),
     )
     return list((await db.execute(stmt)).scalars().all())
+
+
+# --- Chapter-level content review + bulk publish ---
+
+_PUBLISHABLE = (CurriculumStatus.draft, CurriculumStatus.reviewed)
+
+
+def _empty_counts() -> dict[str, int]:
+    return {s.value: 0 for s in CurriculumStatus}
+
+
+async def _chapter_concept_ids(db: AsyncSession, chapter_id: uuid.UUID) -> list[uuid.UUID]:
+    rows = await db.execute(select(Concept.id).where(Concept.chapter_id == chapter_id))
+    return list(rows.scalars().all())
+
+
+async def chapter_content_summary(db: AsyncSession, chapter_id: uuid.UUID) -> dict:
+    """Per-concept + chapter-total counts of items and assets by status, so an
+    admin can see what's draft vs live before publishing a whole chapter."""
+    concepts = await list_concepts(db, chapter_id)
+    concept_ids = [c.id for c in concepts]
+
+    item_counts: dict[str, dict[str, int]] = {}
+    asset_counts: dict[str, dict[str, int]] = {}
+    if concept_ids:
+        for model, bucket in ((Item, item_counts), (Asset, asset_counts)):
+            rows = await db.execute(
+                select(model.concept_id, model.status, func.count())
+                .where(model.concept_id.in_(concept_ids), model.deleted_at.is_(None))
+                .group_by(model.concept_id, model.status)
+            )
+            for concept_id, st, n in rows.all():
+                bucket.setdefault(str(concept_id), _empty_counts())[st.value] = n
+
+    concepts_out: list[dict] = []
+    item_totals, asset_totals = _empty_counts(), _empty_counts()
+    for c in sorted(concepts, key=lambda x: x.order_index):
+        items = item_counts.get(str(c.id), _empty_counts())
+        assets = asset_counts.get(str(c.id), _empty_counts())
+        for s in CurriculumStatus:
+            item_totals[s.value] += items[s.value]
+            asset_totals[s.value] += assets[s.value]
+        concepts_out.append(
+            {"concept_id": c.id, "title": c.title, "order_index": c.order_index, "items": items, "assets": assets}
+        )
+
+    publishable = sum(item_totals[s.value] + asset_totals[s.value] for s in _PUBLISHABLE)
+    return {
+        "concepts": concepts_out,
+        "item_totals": item_totals,
+        "asset_totals": asset_totals,
+        "publishable_count": publishable,
+        "live_count": item_totals["live"] + asset_totals["live"],
+    }
+
+
+async def _bulk_set_status(
+    db: AsyncSession, chapter_id: uuid.UUID, from_statuses, to_status: CurriculumStatus
+) -> dict:
+    concept_ids = await _chapter_concept_ids(db, chapter_id)
+    if not concept_ids:
+        return {"items": 0, "assets": 0}
+    counts: dict[str, int] = {}
+    for key, model in (("items", Item), ("assets", Asset)):
+        result = await db.execute(
+            update(model)
+            .where(
+                model.concept_id.in_(concept_ids),
+                model.deleted_at.is_(None),
+                model.status.in_(from_statuses),
+            )
+            .values(status=to_status)
+        )
+        counts[key] = result.rowcount or 0
+    await db.commit()
+    return counts
+
+
+async def publish_chapter(db: AsyncSession, chapter_id: uuid.UUID) -> dict:
+    """Promote every draft/reviewed item and asset under the chapter straight to
+    live. For a single trusted admin accepting a whole generated chapter — skips
+    the per-item reviewed step on purpose."""
+    return await _bulk_set_status(db, chapter_id, _PUBLISHABLE, CurriculumStatus.live)
+
+
+async def retire_chapter(db: AsyncSession, chapter_id: uuid.UUID) -> dict:
+    """Pull a chapter's live content back to retired (unpublish)."""
+    return await _bulk_set_status(db, chapter_id, (CurriculumStatus.live,), CurriculumStatus.retired)
