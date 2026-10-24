@@ -229,3 +229,16 @@ class PracticeSession(Base, TimestampMixin):
     total: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
     right_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
+
+
+class ActivityEvent(Base, TimestampMixin):
+    """Active time a child spent on task, reported by the client in seconds, so
+    a parent can see time-on-task per day/week. One row per session segment."""
+
+    __tablename__ = "activity_events"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    child_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    concept_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("concepts.id"), nullable=True)
+    context: Mapped[str] = mapped_column(String(20), nullable=False, default="learn")  # learn | check | write
+    seconds: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

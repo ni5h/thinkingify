@@ -10,6 +10,7 @@ import {
   LearnService,
   RecapData,
 } from '../../../core/services/learn.service';
+import { ParentService } from '../../../core/services/parent.service';
 
 type Step = 'intro' | 'card' | 'recap' | 'check' | 'done';
 type ThinkResult = 'right' | 'wrong' | 'unsure';
@@ -150,6 +151,8 @@ export default class CardSessionComponent implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly learn = inject(LearnService);
   private readonly sanitizer = inject(DomSanitizer);
+  private readonly parent = inject(ParentService);
+  private readonly startMs = Date.now();
 
   readonly learnPath = (this.route.snapshot.data['learnPath'] as string) ?? '/ramanujan/learn';
 
@@ -211,6 +214,10 @@ export default class CardSessionComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.stopAudio();
+    const seconds = Math.round((Date.now() - this.startMs) / 1000);
+    if (seconds > 0 && this.conceptId()) {
+      this.parent.reportActivity({ concept_id: this.conceptId(), context: 'learn', seconds });
+    }
   }
 
   // --- trail ---

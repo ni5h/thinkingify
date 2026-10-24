@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, provideRouter } from '@angular/router';
 import CardSessionComponent from './card-session.component';
 import { LearnService } from '../../../core/services/learn.service';
+import { ParentService } from '../../../core/services/parent.service';
 
 const CARDS = [
   {
@@ -37,6 +38,7 @@ function make(service: unknown) {
     providers: [
       provideRouter([]),
       { provide: LearnService, useValue: service },
+      { provide: ParentService, useValue: { reportActivity: () => {} } },
       { provide: ActivatedRoute, useValue: { snapshot: { paramMap: new Map([['conceptId', 'c']]), data: {} } } },
     ],
   });

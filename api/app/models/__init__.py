@@ -9,6 +9,7 @@ from app.models.brother import (
 from app.models.companion_message import CompanionMessage, CompanionMessageRole
 from app.models.content import Content, ContentStatus
 from app.models.curriculum import (
+    ActivityEvent,
     AnswerEvent,
     AnswerResult,
     Asset,
@@ -50,6 +51,7 @@ __all__ = [
     "CompanionMessageRole",
     "Content",
     "ContentStatus",
+    "ActivityEvent",
     "AnswerEvent",
     "AnswerResult",
     "Asset",
