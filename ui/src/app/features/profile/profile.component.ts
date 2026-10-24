@@ -21,6 +21,14 @@ import { resizeAndCompressImage } from '../../core/utils/image';
 
     <h1 class="font-display text-3xl mt-4">Profile</h1>
 
+    <a routerLink="/parent" class="mt-5 flex items-center justify-between gap-3 rounded-2xl border border-cloud bg-white shadow-sm px-5 py-4 hover:border-moss hover:shadow-md transition-all">
+      <span>
+        <span class="block font-medium text-ink">Parent dashboard</span>
+        <span class="block text-sm text-muted">How your child's learning is going — time, progress, a weekly note</span>
+      </span>
+      <span class="text-moss-dark shrink-0">&rarr;</span>
+    </a>
+
     @if (!me()) {
       <p class="text-muted mt-6">Loading your profile&hellip;</p>
     } @else {
