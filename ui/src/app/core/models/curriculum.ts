@@ -93,3 +93,26 @@ export const STATUS_LABELS: Record<CurriculumStatus, string> = {
   live: 'Live',
   retired: 'Retired',
 };
+
+export type StatusCounts = Record<CurriculumStatus, number>;
+
+export interface ConceptContent {
+  concept_id: string;
+  title: string;
+  order_index: number;
+  items: StatusCounts;
+  assets: StatusCounts;
+}
+
+export interface ChapterContent {
+  concepts: ConceptContent[];
+  item_totals: StatusCounts;
+  asset_totals: StatusCounts;
+  publishable_count: number;
+  live_count: number;
+}
+
+export interface PublishResult {
+  items: number;
+  assets: number;
+}

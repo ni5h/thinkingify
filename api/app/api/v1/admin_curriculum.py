@@ -13,6 +13,7 @@ from app.schemas.curriculum import (
     AssetUpdate,
     BookMapCreate,
     BookMapOut,
+    ChapterContentOut,
     ChapterCreate,
     ChapterOut,
     ChapterUpdate,
@@ -22,6 +23,7 @@ from app.schemas.curriculum import (
     ItemCreate,
     ItemOut,
     ItemUpdate,
+    PublishResultOut,
     SkillCreate,
     SkillOut,
     SkillUpdate,
@@ -79,6 +81,24 @@ async def list_chapters(db: Db, subject_id: uuid.UUID | None = None):
 async def update_chapter(chapter_id: uuid.UUID, body: ChapterUpdate, db: Db):
     chapter = await _or_404(await svc.get_chapter(db, chapter_id), "Chapter")
     return await svc.update_chapter(db, chapter, body)
+
+
+@router.get("/chapters/{chapter_id}/content", response_model=ChapterContentOut)
+async def chapter_content(chapter_id: uuid.UUID, db: Db):
+    await _or_404(await svc.get_chapter(db, chapter_id), "Chapter")
+    return await svc.chapter_content_summary(db, chapter_id)
+
+
+@router.post("/chapters/{chapter_id}/publish", response_model=PublishResultOut)
+async def publish_chapter(chapter_id: uuid.UUID, db: Db):
+    await _or_404(await svc.get_chapter(db, chapter_id), "Chapter")
+    return await svc.publish_chapter(db, chapter_id)
+
+
+@router.post("/chapters/{chapter_id}/retire", response_model=PublishResultOut)
+async def retire_chapter(chapter_id: uuid.UUID, db: Db):
+    await _or_404(await svc.get_chapter(db, chapter_id), "Chapter")
+    return await svc.retire_chapter(db, chapter_id)
 
 
 # --- Concepts ---

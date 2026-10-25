@@ -39,11 +39,12 @@ const GHOST = 'rounded-lg px-2.5 py-1 text-sm font-medium text-muted hover:bg-cl
           @for (chapter of chaptersOf(subject.id); track chapter.id) {
             <div class="rounded-2xl border border-cloud bg-white shadow-sm p-4">
               <div class="flex items-center justify-between gap-3">
-                <button type="button" class="flex items-center gap-2 text-left" (click)="toggle(chapter.id)">
+                <button type="button" class="flex items-center gap-2 text-left min-w-0" (click)="toggle(chapter.id)">
                   <span class="text-muted w-4">{{ isOpen(chapter.id) ? '▾' : '▸' }}</span>
-                  <span class="font-medium text-ink">{{ chapter.title }}</span>
-                  <span class="text-xs text-muted">{{ conceptsOf(chapter.id).length }} concepts</span>
+                  <span class="font-medium text-ink truncate">{{ chapter.title }}</span>
+                  <span class="text-xs text-muted shrink-0">{{ conceptsOf(chapter.id).length }} concepts</span>
                 </button>
+                <a [routerLink]="['/studio/curriculum/chapters', chapter.id, 'publish']" class="${GHOST} shrink-0">Review &amp; publish &rarr;</a>
               </div>
 
               @if (isOpen(chapter.id)) {

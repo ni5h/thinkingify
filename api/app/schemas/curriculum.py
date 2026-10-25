@@ -247,3 +247,27 @@ class ConceptProgressOut(BaseModel):
     state: str  # "learning" | "solid" | "needs_look" — never a number
     available: bool
     mastered: bool
+
+
+# --- Chapter content review + bulk publish ---
+
+
+class ConceptContentOut(BaseModel):
+    concept_id: uuid.UUID
+    title: str
+    order_index: int
+    items: dict[str, int]  # status -> count
+    assets: dict[str, int]
+
+
+class ChapterContentOut(BaseModel):
+    concepts: list[ConceptContentOut]
+    item_totals: dict[str, int]
+    asset_totals: dict[str, int]
+    publishable_count: int  # draft + reviewed, items + assets
+    live_count: int
+
+
+class PublishResultOut(BaseModel):
+    items: int
+    assets: int

@@ -3,6 +3,7 @@ import { HttpClient, httpResource } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import {
   Chapter,
+  ChapterContent,
   ChapterDraft,
   Concept,
   ConceptDraft,
@@ -10,6 +11,7 @@ import {
   Item,
   ItemDraft,
   ItemKind,
+  PublishResult,
   Skill,
   SkillDraft,
   Subject,
@@ -131,5 +133,20 @@ export class CurriculumService {
   private reloadItems(): void {
     this.itemsResource.reload();
     this.reviewResource.reload();
+  }
+
+  // --- chapter-level content review + bulk publish ---
+  async getChapterContent(chapterId: string): Promise<ChapterContent> {
+    return firstValueFrom(this.http.get<ChapterContent>(`${this.base}/chapters/${chapterId}/content`));
+  }
+  async publishChapter(chapterId: string): Promise<PublishResult> {
+    const r = await firstValueFrom(this.http.post<PublishResult>(`${this.base}/chapters/${chapterId}/publish`, {}));
+    this.reloadItems();
+    return r;
+  }
+  async retireChapter(chapterId: string): Promise<PublishResult> {
+    const r = await firstValueFrom(this.http.post<PublishResult>(`${this.base}/chapters/${chapterId}/retire`, {}));
+    this.reloadItems();
+    return r;
   }
 }

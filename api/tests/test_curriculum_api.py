@@ -61,6 +61,65 @@ def test_review_queue_lists_draft_items(client, admin_user):
     assert item["id"] in [i["id"] for i in queue]
 
 
+def _make_chapter_with_content(client, admin_user):
+    """A chapter with one concept, two draft items, and two draft assets."""
+    a = _auth(admin_user)
+    subj = client.post("/api/v1/admin/curriculum/subjects", json={"name": "E", "code": "evs1", "grade": 4}, headers=a).json()
+    ch = client.post("/api/v1/admin/curriculum/chapters", json={"subject_id": subj["id"], "title": "Animals"}, headers=a).json()
+    con = client.post("/api/v1/admin/curriculum/concepts", json={"chapter_id": ch["id"], "title": "Groups"}, headers=a).json()
+    for body in ("q1", "q2"):
+        client.post("/api/v1/admin/curriculum/items", json={"concept_id": con["id"], "kind": "apply", "body": body, "answer_key": "x"}, headers=a)
+    for kind in ("card", "recap"):
+        client.post("/api/v1/admin/curriculum/assets", json={"concept_id": con["id"], "kind": kind, "body": "b"}, headers=a)
+    return ch, con
+
+
+def test_chapter_content_summary_counts_drafts(client, admin_user):
+    ch, con = _make_chapter_with_content(client, admin_user)
+    summary = client.get(f"/api/v1/admin/curriculum/chapters/{ch['id']}/content", headers=_auth(admin_user)).json()
+    assert summary["item_totals"]["draft"] == 2
+    assert summary["asset_totals"]["draft"] == 2
+    assert summary["publishable_count"] == 4
+    assert summary["live_count"] == 0
+    assert summary["concepts"][0]["concept_id"] == con["id"]
+
+
+def test_publish_chapter_takes_items_and_assets_live(client, admin_user, learner_user):
+    ch, con = _make_chapter_with_content(client, admin_user)
+    # One item is already at "reviewed" — publish must take that live too.
+    first_item = client.get("/api/v1/admin/curriculum/items", params={"concept_id": con["id"]}, headers=_auth(admin_user)).json()[0]
+    client.post(f"/api/v1/admin/curriculum/items/{first_item['id']}/submit-for-review", headers=_auth(admin_user))
+
+    result = client.post(f"/api/v1/admin/curriculum/chapters/{ch['id']}/publish", headers=_auth(admin_user))
+    assert result.status_code == 200
+    assert result.json() == {"items": 2, "assets": 2}
+
+    # Learner now sees live content (previously hidden).
+    live_items = client.get(f"/api/v1/curriculum/concepts/{con['id']}/items", headers=_auth(learner_user)).json()
+    live_assets = client.get(f"/api/v1/curriculum/concepts/{con['id']}/assets", headers=_auth(learner_user)).json()
+    assert len(live_items) == 2
+    assert len(live_assets) == 2
+
+    # Publishing again is a no-op (nothing left in draft/reviewed).
+    again = client.post(f"/api/v1/admin/curriculum/chapters/{ch['id']}/publish", headers=_auth(admin_user)).json()
+    assert again == {"items": 0, "assets": 0}
+
+
+def test_retire_chapter_unpublishes_live(client, admin_user, learner_user):
+    ch, con = _make_chapter_with_content(client, admin_user)
+    client.post(f"/api/v1/admin/curriculum/chapters/{ch['id']}/publish", headers=_auth(admin_user))
+    result = client.post(f"/api/v1/admin/curriculum/chapters/{ch['id']}/retire", headers=_auth(admin_user)).json()
+    assert result == {"items": 2, "assets": 2}
+    live_items = client.get(f"/api/v1/curriculum/concepts/{con['id']}/items", headers=_auth(learner_user)).json()
+    assert live_items == []
+
+
+def test_chapter_publish_requires_admin(client, admin_user, learner_user):
+    ch, _con = _make_chapter_with_content(client, admin_user)
+    assert client.post(f"/api/v1/admin/curriculum/chapters/{ch['id']}/publish", headers=_auth(learner_user)).status_code == 403
+    assert client.get(f"/api/v1/admin/curriculum/chapters/{ch['id']}/content", headers=_auth(learner_user)).status_code == 403
+
+
 def test_admin_emails_grant_admin_role_on_login(monkeypatch):
     from app.models.user import UserRole
     from app.services import auth_service
