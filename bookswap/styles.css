@@ -1,0 +1,111 @@
+/* 🎨  THE LOOKS
+   This file is where the colors, fonts and shapes live.
+   Fun thing to try: change the colors below and refresh the page! */
+
+/* These are your colors. Change the codes after the : to recolor everything.
+   (The # codes are colors — try https://htmlcolorcodes.com to pick new ones.) */
+:root {
+  --paper:  #FBF7EF;   /* the background */
+  --ink:    #2A2622;   /* the main text */
+  --soft:   #8A8178;   /* quieter text */
+  --card:   #FFFFFF;   /* the card color */
+  --accent: #E8743B;   /* the fun orange (titles, highlights) */
+  --accent2:#3F8E6E;   /* the fun green */
+  --line:   #ECE4D6;   /* thin borders */
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "Comic Sans MS", "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+  line-height: 1.5;
+}
+
+/* ===== Top of the page ===== */
+.top {
+  text-align: center;
+  padding: 40px 20px 10px;
+}
+.top h1 {
+  font-size: 2.6rem;
+  margin: 0;
+  color: var(--accent);
+}
+.tagline {
+  font-size: 1.1rem;
+  color: var(--soft);
+  margin: 6px 0 0;
+}
+
+/* ===== The shelf of book cards ===== */
+main {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 20px;
+}
+.shelf {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 18px;
+  margin-top: 10px;
+}
+
+/* ===== One book card ===== */
+.card {
+  background: var(--card);
+  border: 2px solid var(--line);
+  border-radius: 18px;
+  padding: 18px;
+  box-shadow: 0 6px 16px rgba(42, 38, 34, 0.06);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.card:hover {
+  transform: translateY(-4px) rotate(-1deg);
+  box-shadow: 0 12px 24px rgba(42, 38, 34, 0.12);
+}
+.cover {
+  font-size: 3.4rem;
+  text-align: center;
+  line-height: 1;
+}
+.title {
+  font-size: 1.15rem;
+  margin: 10px 0 2px;
+  color: var(--ink);
+}
+.author {
+  margin: 0;
+  color: var(--soft);
+  font-size: 0.95rem;
+}
+.swap {
+  margin: 12px 0 0;
+  font-size: 0.95rem;
+  background: #FFF4E8;
+  border-radius: 12px;
+  padding: 8px 10px;
+}
+.swap b { color: var(--accent2); }
+
+/* ===== Little helpers ===== */
+.hint {
+  text-align: center;
+  color: var(--soft);
+  margin-top: 28px;
+  font-size: 0.95rem;
+}
+.empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  font-size: 1.1rem;
+  color: var(--soft);
+}
+.bottom {
+  text-align: center;
+  color: var(--soft);
+  font-size: 0.85rem;
+  padding: 30px 20px 50px;
+}

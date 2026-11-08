@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Book Swap</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- ===== The top of the page ===== -->
+  <header class="top">
+    <h1>📚 Book Swap</h1>
+    <p class="tagline">Trade a book you've finished for one you haven't.</p>
+  </header>
+
+  <main>
+    <!-- This empty box gets filled with book cards by app.js -->
+    <section id="shelf" class="shelf"></section>
+
+    <!-- A friendly hint, in case the shelf is empty -->
+    <p class="hint">
+      Want to add a book? Open <b>books.js</b> and follow the steps at the top.
+    </p>
+  </main>
+
+  <footer class="bottom">
+    <p>Made by Neo · a Thinkingify experiment</p>
+  </footer>
+
+  <!-- ===== The code that makes it work =====
+       Order matters! books.js must load BEFORE app.js,
+       because app.js reads the list from books.js. -->
+  <script src="books.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
