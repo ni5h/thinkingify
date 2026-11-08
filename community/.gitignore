@@ -1,0 +1,6 @@
+# Book community (Angular)
+/node_modules
+/dist
+/.angular
+/out-tsc
+*.log
